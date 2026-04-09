@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Avatar Creator 2</title>
+  <link rel="icon" type="image/png" href="./images/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <button
+    class="creator-embed-close"
+    type="button"
+    data-creator-close-request
+    aria-label="Close Avatar Creator"
+  ></button>
+  <main class="landing-shell">
+    <section class="landing">
+      <header class="topbar">
+        <div class="top-actions">
+          <div class="hamburger-wrap">
+            <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="top-dropdown">
+              <span></span>
+              <span></span>
+              <span></span>
+            </button>
+            <nav id="top-dropdown" class="dropdown-menu" aria-label="Avatar options">
+              <a class="ra2-btn" href="#">Realisitc Avatar</a>
+              <a class="mkt-btn" href="https://market.viverse.com/zh-TW/?_gl=1*15khbrs*_gcl_au*MTUyODIxNjg5Mi4xNzY4OTg5Mjg1LjQzOTM2NTE3NS4xNzcxOTUxNDA3LjE3NzE5NTE0MDY.*_ga*MTc2MDg1NDkzMC4xNzUxNDc4NDQ0*_ga_DGG9JZZMCG*czE3NzI5MjIyMzckbzI0MyRnMSR0MTc3MjkyMzQzNiRqNTkkbDAkaDA." target="_blank" rel="noopener noreferrer">Marketplace</a>
+              <div class="dropdown-inline-action">
+                <button class="uploadvrm-btn" type="button" data-upload-vrm-trigger>Upload VRM</button>
+                <div class="menu-info-wrap creator-info-wrap">
+                  <a class="menu-info-btn info-btn" href="../vrmguide/vrmguide.html" target="_blank" rel="noopener noreferrer" aria-label="What is VRM?">
+                    <span aria-hidden="true">i</span>
+                  </a>
+                  <span class="menu-info-popup creator-info-popup" role="status">What is VRM?</span>
+                </div>
+              </div>
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      <section class="hero">
+        <section class="hero-copy">
+          <h1>
+            <span class="title-main">Create Your</span>
+            <span class="title-gradient" data-text="Unique Character">Unique Character</span>
+          </h1>
+          <p class="desc">
+            Customize style, colors, and details - no two avatars look the same.
+          </p>
+          <div class="cta-row">
+            <button id="cta" class="creator-cta" type="button">Create Now!</button>
+            <div class="creator-inline-action">
+              <button class="creator-upload-cta" type="button" data-upload-vrm-trigger>Upload VRM</button>
+              <div class="creator-info-wrap">
+                <a
+                  class="info-btn"
+                  href="../vrmguide/vrmguide.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="What is VRM?"
+                >
+                  <span aria-hidden="true">i</span>
+                </a>
+                <span class="creator-info-popup" role="status">What is VRM?</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="hero-visual" aria-label="Creative hero visual">
+          <div class="blob blob-a"></div>
+          <div class="blob blob-b"></div>
+          <div class="blob blob-c"></div>
+          <div class="hero-carousel" aria-live="polite">
+            <img class="hero-slide is-active" src="./images/Yaya_Collection_print_v2.png" alt="Yaya collection character visual">
+            <img class="hero-slide" src="./images/Michael_print_Collection.png" alt="Michael collection character visual">
+            <img class="hero-slide" src="./images/Iris.png" alt="Iris character visual">
+            <img class="hero-slide" src="./images/ca2_suit_tb_01.png" alt="Suit character visual">
+            <img class="hero-slide" src="./images/ca2_suit_tb_05.png" alt="Suit character visual 05">
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
+    <div id="caption-wrapper">
+      <div id="loading-container">
+        <div id="loading-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="player-version">v2.1.872</div>
+
+  <div id="container" aria-hidden="true">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <input id="upload-vrm-input" type="file" accept=".vrm,model/vrm" hidden>
+
+  <script>
+    (() => {
+      const startButton = document.getElementById('cta');
+      const creatorCloseRequestButton = document.querySelector('[data-creator-close-request]');
+      const uploadVrmTriggers = Array.prototype.slice.call(document.querySelectorAll('[data-upload-vrm-trigger]'));
+      const uploadVrmInput = document.getElementById('upload-vrm-input');
+      const loadingOverlay = document.getElementById('loading-overlay');
+      const loadingBar = document.getElementById('loading-bar');
+      const landingShell = document.querySelector('.landing-shell');
+      const container = document.getElementById('container');
+      const canvasElement = document.getElementById('game-canvas');
+      const versionBadge = document.getElementById('player-version');
+      const unityLoaderUrl = './Build/viverse-avatar-creator.loader.js';
+      const unityFrameworkUrl = './Build/viverse-avatar-creator.framework.js.unityweb';
+      const unityCodeUrl = './Build/viverse-avatar-creator.wasm.unityweb';
+      const unityDataUrl = './Build/viverse-avatar-creator.data.unityweb';
+      const START_BUTTON_TEXT = 'Create Now!';
+      const LOADING_BUTTON_TEXT = 'Loading...';
+      const isEmbedded = window.parent && window.parent !== window;
+      const AC2_PROTOCOL_VERSION = '1.0';
+      const urlParams = new URLSearchParams(window.location.search);
+
+      let canvas = canvasElement;
+      let unityReady = false;
+      let enterRequested = false;
+      let hasEnteredUnity = false;
+      let unityLoadStarted = false;
+      let revealFinalizeTimerId = null;
+      let revealOrigin = null;
+      let unityRuntimeReady = false;
+      let unityRuntimePreloadPromise = null;
+      let unityInstancePromise = null;
+      let hostContext = null;
+      let hostOrigin = '*';
+      let hostSource = null;
+
+      try {
+        if (document.referrer) {
+          hostOrigin = new URL(document.referrer).origin;
+        }
+      } catch (error) {
+        console.warn('Unable to resolve host origin from referrer.', error);
+      }
+
+      if (isEmbedded) {
+        document.body.classList.add('is-embedded');
+      }
+
+      if (versionBadge) {
+        versionBadge.textContent = 'v2.1.872';
+      }
+
+      function progressHandler(progress) {
+        loadingBar.style.width = (progress * 100) + '%';
+      }
+
+      function onResize() {
+        setRevealOrigin();
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+      }
+
+      function setRevealOrigin() {
+        revealOrigin = {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2
+        };
+
+        const maxHorizontal = Math.max(revealOrigin.x, window.innerWidth - revealOrigin.x);
+        const maxVertical = Math.max(revealOrigin.y, window.innerHeight - revealOrigin.y);
+        const finalRadius = Math.ceil(Math.sqrt((maxHorizontal * maxHorizontal) + (maxVertical * maxVertical)));
+
+        document.body.style.setProperty('--unity-reveal-x', revealOrigin.x + 'px');
+        document.body.style.setProperty('--unity-reveal-y', revealOrigin.y + 'px');
+        document.body.style.setProperty('--unity-reveal-end-radius', finalRadius + 'px');
+      }
+
+      function showLoadingOverlay() {
+        document.body.classList.add('show-loading-overlay');
+        loadingOverlay.setAttribute('aria-hidden', 'false');
+        if (startButton) {
+          startButton.textContent = LOADING_BUTTON_TEXT;
+        }
+      }
+
+      function hideLoadingOverlay() {
+        document.body.classList.remove('show-loading-overlay');
+        loadingOverlay.setAttribute('aria-hidden', 'true');
+        if (startButton) {
+          startButton.textContent = START_BUTTON_TEXT;
+        }
+      }
+
+      function resetToLanding() {
+        enterRequested = false;
+        hasEnteredUnity = false;
+
+        if (revealFinalizeTimerId !== null) {
+          window.clearTimeout(revealFinalizeTimerId);
+          revealFinalizeTimerId = null;
+        }
+
+        hideLoadingOverlay();
+        document.body.classList.remove('enter-unity');
+        document.body.classList.remove('unity-visible');
+        landingShell.setAttribute('aria-hidden', 'false');
+        container.setAttribute('aria-hidden', 'true');
+        loadingBar.style.width = '0%';
+        notifyParentEvent('landing');
+      }
+
+      function enterUnity() {
+        if (!unityReady || hasEnteredUnity) return;
+        hasEnteredUnity = true;
+        hideLoadingOverlay();
+        notifyParentEvent('unity-started');
+        document.body.classList.add('enter-unity');
+        container.setAttribute('aria-hidden', 'false');
+        if (revealFinalizeTimerId !== null) {
+          window.clearTimeout(revealFinalizeTimerId);
+        }
+        revealFinalizeTimerId = window.setTimeout(function () {
+          document.body.classList.add('unity-visible');
+          landingShell.setAttribute('aria-hidden', 'true');
+        }, 1050);
+        onResize();
+      }
+
+      function queueUnityEntry() {
+        setRevealOrigin();
+        enterRequested = true;
+        if (unityReady) {
+          enterUnity();
+          return;
+        }
+        showLoadingOverlay();
+        startUnityLoad();
+      }
+
+      (() => {
+        const wrap = document.querySelector('.hamburger-wrap');
+        if (!wrap) return;
+        const button = wrap.querySelector('.menu-btn');
+        const menu = wrap.querySelector('.dropdown-menu');
+
+        function closeMenu() {
+          wrap.classList.remove('open');
+          button.setAttribute('aria-expanded', 'false');
+          button.setAttribute('aria-label', 'Open menu');
+        }
+
+        button.addEventListener('click', function (event) {
+          event.stopPropagation();
+          const isOpen = wrap.classList.toggle('open');
+          button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          button.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+        });
+
+        document.addEventListener('click', function (event) {
+          if (!wrap.contains(event.target)) closeMenu();
+        });
+
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') closeMenu();
+        });
+
+        menu.addEventListener('click', closeMenu);
+      })();
+
+      function notifyParent(message) {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage(message, hostOrigin);
+        }
+      }
+
+      function createMessage(type, payload) {
+        const requestId = hostContext && hostContext.requestId ? hostContext.requestId : null;
+        return {
+          type: 'ac2:' + type,
+          protocol: 'ac2',
+          version: AC2_PROTOCOL_VERSION,
+          requestId: requestId,
+          payload: payload || {}
+        };
+      }
+
+      function notifyParentEvent(type, payload) {
+        notifyParent(createMessage(type, payload));
+      }
+
+      function notifyLegacyEvent(type, payload) {
+        switch (type) {
+          case 'landing':
+            notifyParent({ type: 'avatar-creator-landing' });
+            return;
+          case 'unity-started':
+            notifyParent({ type: 'avatar-creator-unity-started' });
+            return;
+          case 'close-request':
+            notifyParent({ type: 'avatar-creator-close-request' });
+            return;
+          case 'upload-error':
+            notifyParent({
+              type: 'avatar-upload-error',
+              message: payload && payload.message ? payload.message : 'VRM upload failed.'
+            });
+            return;
+          case 'upload-vrm':
+            notifyParent({
+              type: 'avatar-upload-vrm',
+              file: payload && payload.file ? payload.file : null
+            });
+            return;
+          case 'avatar-created':
+            notifyParent({
+              method: 'avatar-created',
+              payload: payload || {}
+            });
+            return;
+          default:
+            return;
+        }
+      }
+
+      function emitToParent(type, payload) {
+        notifyParentEvent(type, payload);
+        notifyLegacyEvent(type, payload);
+      }
+
+      function updateUiMode(uiMode) {
+        document.body.dataset.ac2UiMode = uiMode || '';
+      }
+
+      function validateHostPayload(payload) {
+        if (!payload) {
+          return 'Missing init payload.';
+        }
+
+        const requiredKeys = ['sessionToken', 'clientId', 'userId', 'exp'];
+        for (let index = 0; index < requiredKeys.length; index += 1) {
+          const key = requiredKeys[index];
+          if (!payload[key]) {
+            return 'Missing required field: ' + key;
+          }
+        }
+
+        return '';
+      }
+
+      function markBlocked(reason, detail) {
+        emitToParent('blocked', {
+          reason: reason || 'access-denied',
+          detail: detail || ''
+        });
+      }
+
+      function emitError(message, detail) {
+        emitToParent('error', {
+          message: message || 'Unknown error.',
+          detail: detail || ''
+        });
+      }
+
+      function emitExportReady(payload) {
+        emitToParent('export-ready', payload || {});
+      }
+
+      function emitAvatarCreated(payload) {
+        emitToParent('avatar-created', payload || {});
+      }
+
+      function isTrustedHostEvent(event) {
+        if (!event) {
+          return false;
+        }
+
+        if (hostSource && event.source && event.source !== hostSource) {
+          return false;
+        }
+
+        if (hostOrigin !== '*' && event.origin && event.origin !== hostOrigin) {
+          return false;
+        }
+
+        return true;
+      }
+
+      function applyHostInit(message, event) {
+        hostSource = event.source || hostSource;
+        if (event.origin) {
+          hostOrigin = event.origin;
+        }
+
+        hostContext = {
+          requestId: message.requestId || (hostContext && hostContext.requestId ? hostContext.requestId : null),
+          payload: message.payload || {}
+        };
+
+        updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
+
+        const validationError = validateHostPayload(message.payload);
+        if (validationError) {
+          markBlocked('invalid-init', validationError);
+          return;
+        }
+
+        notifyParentEvent('init-ack', {
+          uiMode: message.payload.uiMode || 'modal',
+          locale: message.payload.locale || document.documentElement.lang || 'en',
+          capabilities: {
+            uploadVrm: true,
+            closeRequest: true,
+            exportReadyBridge: true,
+            exportUploadBridge: false,
+            avatarCreatedBridge: true,
+            hostManagedUpload: true
+          }
+        });
+      }
+
+      function requestParentClose() {
+        if (!isEmbedded) return;
+        emitToParent('close-request');
+      }
+
+      function handleUploadSelection() {
+        const file = uploadVrmInput.files && uploadVrmInput.files[0];
+        uploadVrmInput.value = '';
+
+        if (!file) {
+          return;
+        }
+
+        if (!/\.vrm$/i.test(file.name)) {
+          emitToParent('upload-error', {
+            message: 'Only .vrm files can be uploaded.'
+          });
+          return;
+        }
+
+        emitToParent('upload-vrm', {
+          file: file
+        });
+      }
+
+      if (uploadVrmTriggers.length && uploadVrmInput) {
+        uploadVrmTriggers.forEach(function (trigger) {
+          trigger.addEventListener('click', function () {
+            uploadVrmInput.click();
+          });
+        });
+
+        uploadVrmInput.addEventListener('change', handleUploadSelection);
+      }
+
+      creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', requestParentClose);
+
+      (() => {
+        const slides = Array.prototype.slice.call(document.querySelectorAll('.hero-slide'));
+        if (slides.length < 2) return;
+
+        let currentIndex = 0;
+        window.setInterval(function () {
+          const nextIndex = (currentIndex + 1) % slides.length;
+          slides[currentIndex].classList.remove('is-active');
+          slides[nextIndex].classList.add('is-active');
+          currentIndex = nextIndex;
+        }, 5000);
+      })();
+
+      startButton.addEventListener('click', queueUnityEntry);
+      setRevealOrigin();
+
+      window.AC2Bridge = {
+        avatarCreated: emitAvatarCreated,
+        exportReady: emitExportReady,
+        blocked: markBlocked,
+        error: emitError
+      };
+
+      function warmFetch(url) {
+        return fetch(url, { credentials: 'same-origin' }).then(function (response) {
+          if (!response.ok) {
+            throw new Error('Failed to preload ' + url + ' (' + response.status + ')');
+          }
+          return response.arrayBuffer();
+        });
+      }
+
+      function loadUnityLoaderScript() {
+        return new Promise(function (resolve, reject) {
+          if (typeof createUnityInstance === 'function') {
+            resolve();
+            return;
+          }
+
+          const existingScript = document.querySelector('script[data-unity-loader="true"]');
+          if (existingScript) {
+            existingScript.addEventListener('load', resolve, { once: true });
+            existingScript.addEventListener('error', reject, { once: true });
+            return;
+          }
+
+          const script = document.createElement('script');
+          script.src = unityLoaderUrl;
+          script.async = true;
+          script.dataset.unityLoader = 'true';
+          script.addEventListener('load', resolve, { once: true });
+          script.addEventListener('error', function () {
+            reject(new Error('Failed to load Unity loader script.'));
+          }, { once: true });
+          document.body.appendChild(script);
+        });
+      }
+
+      function preloadUnityRuntime() {
+        if (!unityRuntimePreloadPromise) {
+          unityRuntimePreloadPromise = Promise.all([
+            loadUnityLoaderScript(),
+            warmFetch(unityFrameworkUrl),
+            warmFetch(unityCodeUrl)
+          ]).then(function () {
+            unityRuntimeReady = true;
+          }).catch(function (error) {
+            console.error(error);
+            throw error;
+          });
+        }
+
+        return unityRuntimePreloadPromise;
+      }
+
+      function createUnityPlayer() {
+        if (!unityInstancePromise) {
+          unityInstancePromise = createUnityInstance(canvasElement, {
+            dataUrl: unityDataUrl,
+            frameworkUrl: unityFrameworkUrl,
+            codeUrl: unityCodeUrl
+          }, progressHandler).then(function (instance) {
+            unityReady = true;
+            canvas = instance.Module.canvas;
+            loadingBar.style.width = '100%';
+            document.body.classList.add('unity-ready');
+            onResize();
+
+            if (enterRequested) {
+              enterUnity();
+            }
+
+            return instance;
+          }).catch(function (error) {
+            unityLoadStarted = false;
+            unityInstancePromise = null;
+            showLoadingOverlay();
+            console.error(error);
+            throw error;
+          });
+        }
+
+        return unityInstancePromise;
+      }
+
+      function startUnityLoad() {
+        if (unityLoadStarted) return;
+        unityLoadStarted = true;
+
+        preloadUnityRuntime().then(function () {
+          createUnityPlayer();
+        }).catch(function (error) {
+          unityLoadStarted = false;
+          showLoadingOverlay();
+          console.error(error);
+        });
+      }
+
+      window.addEventListener('resize', onResize);
+      window.addEventListener('resize', function () {
+        setRevealOrigin();
+      });
+      window.addEventListener('message', function (event) {
+        const message = event.data || {};
+
+        if (!message.type) {
+          return;
+        }
+
+        if (message.type === 'ac2:init') {
+          if (hostOrigin !== '*' && event.origin !== hostOrigin) {
+            markBlocked('invalid-origin', 'Rejected init from unexpected origin.');
+            return;
+          }
+
+          applyHostInit(message, event);
+          return;
+        }
+
+        if (!isTrustedHostEvent(event)) {
+          return;
+        }
+
+        if (message.type === 'avatar-creator-reset' || message.type === 'ac2:reset') {
+          resetToLanding();
+          return;
+        }
+
+        if (message.type === 'ac2:set-ui-mode') {
+          updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
+          return;
+        }
+
+        if (message.type === 'ac2:close') {
+          requestParentClose();
+        }
+      });
+      window.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && isEmbedded) {
+          requestParentClose();
+        }
+      });
+      if (urlParams.get('embedded') === '1') {
+        updateUiMode(urlParams.get('uiMode') || 'modal');
+      }
+      if (isEmbedded) {
+        notifyParentEvent('ready', {
+          embedded: true,
+          path: window.location.pathname,
+          uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal'
+        });
+      }
+      window.addEventListener('load', preloadUnityRuntime, { once: true });
+      onResize();
+    })();
+  </script>
+</body>
+</html>
