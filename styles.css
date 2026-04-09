@@ -142,6 +142,38 @@ body.is-embedded .ac2-host-frame-viewport {
   isolation: isolate;
 }
 
+body.is-embedded {
+  background: transparent;
+}
+
+body.is-embedded::after {
+  content: none;
+}
+
+body.is-embedded .ac2-host-frame-viewport::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40vw 40vw at 76% 44%, rgba(255, 130, 80, 0.18), transparent 64%),
+    radial-gradient(54vw 54vw at 98% 12%, rgba(200, 92, 255, 0.24), transparent 72%),
+    linear-gradient(95deg, var(--bg-left) 0%, var(--bg-mid) 42%, var(--bg-right) 100%);
+}
+
+body.is-embedded .ac2-host-frame-viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 50%, transparent 48%, rgba(0, 0, 0, 0.56) 100%),
+    linear-gradient(to right, rgba(0, 0, 0, 0.28) 0%, transparent 12%, transparent 88%, rgba(0, 0, 0, 0.28) 100%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0%, transparent 14%, transparent 86%, rgba(0, 0, 0, 0.22) 100%);
+}
+
 body.is-embedded .landing-shell,
 body.is-embedded .loading-overlay,
 body.is-embedded #container {
