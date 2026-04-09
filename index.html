@@ -17,7 +17,9 @@
     data-creator-close-request
     aria-label="Close Avatar Creator"
   ></button>
-  <main class="landing-shell">
+    <div class="ac2-host-frame">
+    <div class="ac2-host-frame-viewport">
+      <main class="landing-shell">
     <section class="landing">
       <header class="topbar">
         <div class="top-actions">
@@ -99,8 +101,10 @@
 
   <div id="player-version">v2.1.872</div>
 
-  <div id="container" aria-hidden="true">
+        <div id="container" aria-hidden="true">
     <canvas id="game-canvas"></canvas>
+  </div>
+    </div>
   </div>
 
   <input id="upload-vrm-input" type="file" accept=".vrm,model/vrm" hidden>
@@ -115,6 +119,7 @@
       const loadingBar = document.getElementById('loading-bar');
       const landingShell = document.querySelector('.landing-shell');
       const container = document.getElementById('container');
+      const frameViewport = document.querySelector('.ac2-host-frame-viewport');
       const canvasElement = document.getElementById('game-canvas');
       const versionBadge = document.getElementById('player-version');
       const unityLoaderUrl = './Build/viverse-avatar-creator.loader.js';
@@ -253,20 +258,36 @@
         loadingBar.style.width = (progress * 100) + '%';
       }
 
+      function getHostViewportSize() {
+        if (isEmbedded && frameViewport) {
+          return {
+            width: frameViewport.clientWidth || window.innerWidth,
+            height: frameViewport.clientHeight || window.innerHeight
+          };
+        }
+
+        return {
+          width: window.innerWidth,
+          height: window.innerHeight
+        };
+      }
+
       function onResize() {
+        const viewportSize = getHostViewportSize();
         setRevealOrigin();
-        canvas.style.width = window.innerWidth + 'px';
-        canvas.style.height = window.innerHeight + 'px';
+        canvas.style.width = viewportSize.width + 'px';
+        canvas.style.height = viewportSize.height + 'px';
       }
 
       function setRevealOrigin() {
+        const viewportSize = getHostViewportSize();
         revealOrigin = {
-          x: window.innerWidth / 2,
-          y: window.innerHeight / 2
+          x: viewportSize.width / 2,
+          y: viewportSize.height / 2
         };
 
-        const maxHorizontal = Math.max(revealOrigin.x, window.innerWidth - revealOrigin.x);
-        const maxVertical = Math.max(revealOrigin.y, window.innerHeight - revealOrigin.y);
+        const maxHorizontal = Math.max(revealOrigin.x, viewportSize.width - revealOrigin.x);
+        const maxVertical = Math.max(revealOrigin.y, viewportSize.height - revealOrigin.y);
         const finalRadius = Math.ceil(Math.sqrt((maxHorizontal * maxHorizontal) + (maxVertical * maxVertical)));
 
         document.body.style.setProperty('--unity-reveal-x', revealOrigin.x + 'px');
@@ -497,6 +518,7 @@
 
         updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
         applyFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle);
+        onResize();
 
         const validationError = validateHostPayload(message.payload);
         if (validationError) {
@@ -717,6 +739,7 @@
 
         if (message.type === 'ac2:set-frame-style') {
           applyFrameStyle(message.payload || {});
+          onResize();
           notifyParentEvent('frame-style-ack', {
             frameStyle: getFrameStylePayload()
           });
@@ -754,4 +777,9 @@
   </script>
 </body>
 </html>
+
+
+
+
+
 

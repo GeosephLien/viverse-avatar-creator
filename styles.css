@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg-left: #060d36;
   --bg-mid: #150d3a;
   --bg-right: #3c1556;
@@ -98,6 +98,69 @@ body::after {
     radial-gradient(120% 90% at 50% 50%, transparent 48%, rgba(0, 0, 0, 0.56) 100%),
     linear-gradient(to right, rgba(0, 0, 0, 0.28) 0%, transparent 12%, transparent 88%, rgba(0, 0, 0, 0.28) 100%),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0%, transparent 14%, transparent 86%, rgba(0, 0, 0, 0.22) 100%);
+}
+
+.ac2-host-frame {
+  position: relative;
+  min-height: 100vh;
+}
+
+.ac2-host-frame-viewport {
+  position: relative;
+  min-height: 100vh;
+}
+
+body.is-embedded .ac2-host-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: var(--ac2-host-frame-justify, center);
+  align-items: var(--ac2-host-frame-align, center);
+  padding:
+    var(--ac2-host-frame-padding-top)
+    var(--ac2-host-frame-padding-right)
+    var(--ac2-host-frame-padding-bottom)
+    var(--ac2-host-frame-padding-left);
+  pointer-events: none;
+}
+
+body.is-embedded .ac2-host-frame-viewport {
+  position: relative;
+  width: min(
+    var(--ac2-host-frame-width),
+    calc(100vw - var(--ac2-host-frame-padding-left) - var(--ac2-host-frame-padding-right))
+  );
+  height: min(
+    var(--ac2-host-frame-height),
+    calc(100vh - var(--ac2-host-frame-padding-top) - var(--ac2-host-frame-padding-bottom))
+  );
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--ac2-host-frame-radius);
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+body.is-embedded .landing-shell,
+body.is-embedded .loading-overlay,
+body.is-embedded #container {
+  position: absolute;
+  inset: 0;
+  min-height: 0;
+}
+
+body.is-embedded .landing-shell {
+  z-index: 5;
+}
+
+body.is-embedded .landing {
+  width: 100%;
+  min-height: 100%;
+}
+
+body.is-embedded #player-version {
+  position: absolute;
 }
 
 .creator-embed-close {
@@ -883,6 +946,26 @@ body.unity-visible #container {
 }
 
 @media (max-width: 960px) {
+  body.is-embedded .ac2-host-frame {
+    padding:
+      var(--ac2-host-frame-mobile-padding-top)
+      var(--ac2-host-frame-mobile-padding-right)
+      var(--ac2-host-frame-mobile-padding-bottom)
+      var(--ac2-host-frame-mobile-padding-left);
+  }
+
+  body.is-embedded .ac2-host-frame-viewport {
+    width: min(
+      var(--ac2-host-frame-width),
+      calc(100vw - var(--ac2-host-frame-mobile-padding-left) - var(--ac2-host-frame-mobile-padding-right))
+    );
+    height: min(
+      var(--ac2-host-frame-height),
+      calc(100vh - var(--ac2-host-frame-mobile-padding-top) - var(--ac2-host-frame-mobile-padding-bottom))
+    );
+    border-radius: var(--ac2-host-frame-mobile-radius);
+  }
+
   .creator-embed-close {
     top: 12px;
     right: 12px;
@@ -993,6 +1076,7 @@ body.unity-visible #container {
     width: 100%;
   }
 }
+
 
 
 
