@@ -7,6 +7,18 @@
   --accent-blue: #4f6df2;
   --accent-violet: #7a67ea;
   --accent-pink: #b566d8;
+  --ac2-host-frame-width: 1280px;
+  --ac2-host-frame-height: 780px;
+  --ac2-host-frame-radius: 28px;
+  --ac2-host-frame-mobile-radius: 22px;
+  --ac2-host-frame-padding-top: 32px;
+  --ac2-host-frame-padding-right: 32px;
+  --ac2-host-frame-padding-bottom: 32px;
+  --ac2-host-frame-padding-left: 32px;
+  --ac2-host-frame-mobile-padding-top: 16px;
+  --ac2-host-frame-mobile-padding-right: 0px;
+  --ac2-host-frame-mobile-padding-bottom: 16px;
+  --ac2-host-frame-mobile-padding-left: 0px;
   --unity-reveal-x: 50vw;
   --unity-reveal-y: 50vh;
   --unity-reveal-start-radius: 0px;
@@ -34,6 +46,46 @@ body {
     radial-gradient(40vw 40vw at 76% 44%, rgba(255, 130, 80, 0.18), transparent 64%),
     radial-gradient(54vw 54vw at 98% 12%, rgba(200, 92, 255, 0.24), transparent 72%),
     linear-gradient(95deg, var(--bg-left) 0%, var(--bg-mid) 42%, var(--bg-right) 100%);
+}
+
+body[data-ac2-frame-placement="center"] {
+  --ac2-host-frame-justify: center;
+  --ac2-host-frame-align: center;
+}
+
+body[data-ac2-frame-placement="right"] {
+  --ac2-host-frame-justify: end;
+  --ac2-host-frame-align: center;
+}
+
+body[data-ac2-frame-placement="left"] {
+  --ac2-host-frame-justify: start;
+  --ac2-host-frame-align: center;
+}
+
+body[data-ac2-frame-placement="top"] {
+  --ac2-host-frame-justify: center;
+  --ac2-host-frame-align: start;
+}
+
+body[data-ac2-frame-placement="bottom"] {
+  --ac2-host-frame-justify: center;
+  --ac2-host-frame-align: end;
+}
+
+body[data-ac2-frame-placement="fullscreen"] {
+  --ac2-host-frame-width: 100vw;
+  --ac2-host-frame-height: 100vh;
+  --ac2-host-frame-radius: 0px;
+  --ac2-host-frame-mobile-radius: 0px;
+  --ac2-host-frame-padding-top: 0px;
+  --ac2-host-frame-padding-right: 0px;
+  --ac2-host-frame-padding-bottom: 0px;
+  --ac2-host-frame-padding-left: 0px;
+  --ac2-host-frame-mobile-padding-top: 0px;
+  --ac2-host-frame-mobile-padding-right: 0px;
+  --ac2-host-frame-mobile-padding-bottom: 0px;
+  --ac2-host-frame-mobile-padding-left: 0px;
 }
 
 body::after {

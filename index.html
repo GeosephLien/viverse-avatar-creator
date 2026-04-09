@@ -125,6 +125,25 @@
       const LOADING_BUTTON_TEXT = 'Loading...';
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
+      const DEFAULT_HOST_FRAME_STYLE = {
+        placement: 'center',
+        panelWidth: 1280,
+        panelHeight: 780,
+        panelRadius: 28,
+        mobilePanelRadius: 22,
+        padding: {
+          top: 32,
+          right: 32,
+          bottom: 32,
+          left: 32
+        },
+        mobilePadding: {
+          top: 16,
+          right: 0,
+          bottom: 16,
+          left: 0
+        }
+      };
       const urlParams = new URLSearchParams(window.location.search);
 
       let canvas = canvasElement;
@@ -140,6 +159,7 @@
       let hostContext = null;
       let hostOrigin = '*';
       let hostSource = null;
+      let hostFrameStyle = DEFAULT_HOST_FRAME_STYLE;
 
       try {
         if (document.referrer) {
@@ -155,6 +175,78 @@
 
       if (versionBadge) {
         versionBadge.textContent = 'v2.1.872';
+      }
+
+      function cloneFrameInsets(source, fallback) {
+        const next = source || {};
+        return {
+          top: Number.isFinite(next.top) ? next.top : fallback.top,
+          right: Number.isFinite(next.right) ? next.right : fallback.right,
+          bottom: Number.isFinite(next.bottom) ? next.bottom : fallback.bottom,
+          left: Number.isFinite(next.left) ? next.left : fallback.left
+        };
+      }
+
+      function normalizeFrameStyle(frameStyle) {
+        const next = frameStyle || {};
+        const placement = typeof next.placement === 'string' && next.placement
+          ? next.placement
+          : DEFAULT_HOST_FRAME_STYLE.placement;
+        const panelWidth = Number.isFinite(next.panelWidth) ? next.panelWidth : DEFAULT_HOST_FRAME_STYLE.panelWidth;
+        const panelHeight = Number.isFinite(next.panelHeight) ? next.panelHeight : DEFAULT_HOST_FRAME_STYLE.panelHeight;
+        const panelRadius = Number.isFinite(next.panelRadius) ? next.panelRadius : DEFAULT_HOST_FRAME_STYLE.panelRadius;
+        const mobilePanelRadius = Number.isFinite(next.mobilePanelRadius)
+          ? next.mobilePanelRadius
+          : DEFAULT_HOST_FRAME_STYLE.mobilePanelRadius;
+
+        return {
+          placement: placement,
+          panelWidth: panelWidth,
+          panelHeight: panelHeight,
+          panelRadius: panelRadius,
+          mobilePanelRadius: mobilePanelRadius,
+          padding: cloneFrameInsets(next.padding, DEFAULT_HOST_FRAME_STYLE.padding),
+          mobilePadding: cloneFrameInsets(next.mobilePadding, DEFAULT_HOST_FRAME_STYLE.mobilePadding)
+        };
+      }
+
+      function applyFrameStyle(frameStyle) {
+        hostFrameStyle = normalizeFrameStyle(frameStyle);
+        document.body.dataset.ac2FramePlacement = hostFrameStyle.placement;
+        document.body.style.setProperty('--ac2-host-frame-width', hostFrameStyle.panelWidth + 'px');
+        document.body.style.setProperty('--ac2-host-frame-height', hostFrameStyle.panelHeight + 'px');
+        document.body.style.setProperty('--ac2-host-frame-radius', hostFrameStyle.panelRadius + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-radius', hostFrameStyle.mobilePanelRadius + 'px');
+        document.body.style.setProperty('--ac2-host-frame-padding-top', hostFrameStyle.padding.top + 'px');
+        document.body.style.setProperty('--ac2-host-frame-padding-right', hostFrameStyle.padding.right + 'px');
+        document.body.style.setProperty('--ac2-host-frame-padding-bottom', hostFrameStyle.padding.bottom + 'px');
+        document.body.style.setProperty('--ac2-host-frame-padding-left', hostFrameStyle.padding.left + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-padding-top', hostFrameStyle.mobilePadding.top + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-padding-right', hostFrameStyle.mobilePadding.right + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-padding-bottom', hostFrameStyle.mobilePadding.bottom + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-padding-left', hostFrameStyle.mobilePadding.left + 'px');
+      }
+
+      function getFrameStylePayload() {
+        return {
+          placement: hostFrameStyle.placement,
+          panelWidth: hostFrameStyle.panelWidth,
+          panelHeight: hostFrameStyle.panelHeight,
+          panelRadius: hostFrameStyle.panelRadius,
+          mobilePanelRadius: hostFrameStyle.mobilePanelRadius,
+          padding: {
+            top: hostFrameStyle.padding.top,
+            right: hostFrameStyle.padding.right,
+            bottom: hostFrameStyle.padding.bottom,
+            left: hostFrameStyle.padding.left
+          },
+          mobilePadding: {
+            top: hostFrameStyle.mobilePadding.top,
+            right: hostFrameStyle.mobilePadding.right,
+            bottom: hostFrameStyle.mobilePadding.bottom,
+            left: hostFrameStyle.mobilePadding.left
+          }
+        };
       }
 
       function progressHandler(progress) {
@@ -404,6 +496,7 @@
         };
 
         updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
+        applyFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle);
 
         const validationError = validateHostPayload(message.payload);
         if (validationError) {
@@ -414,13 +507,15 @@
         notifyParentEvent('init-ack', {
           uiMode: message.payload.uiMode || 'modal',
           locale: message.payload.locale || document.documentElement.lang || 'en',
+          frameStyle: getFrameStylePayload(),
           capabilities: {
             uploadVrm: true,
             closeRequest: true,
             exportReadyBridge: true,
             exportUploadBridge: false,
             avatarCreatedBridge: true,
-            hostManagedUpload: true
+            hostManagedUpload: true,
+            frameStyleBridge: true
           }
         });
 
@@ -480,6 +575,7 @@
       })();
 
       startButton.addEventListener('click', queueUnityEntry);
+      applyFrameStyle(DEFAULT_HOST_FRAME_STYLE);
       setRevealOrigin();
 
       window.AC2Bridge = {
@@ -619,6 +715,14 @@
           return;
         }
 
+        if (message.type === 'ac2:set-frame-style') {
+          applyFrameStyle(message.payload || {});
+          notifyParentEvent('frame-style-ack', {
+            frameStyle: getFrameStylePayload()
+          });
+          return;
+        }
+
         if (message.type === 'ac2:start') {
           queueUnityEntry();
           return;
@@ -640,7 +744,8 @@
         notifyParentEvent('ready', {
           embedded: true,
           path: window.location.pathname,
-          uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal'
+          uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal',
+          frameStyle: getFrameStylePayload()
         });
       }
       window.addEventListener('load', preloadUnityRuntime, { once: true });
