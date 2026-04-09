@@ -408,6 +408,18 @@
         notifyParent(createMessage(type, payload));
       }
 
+      function emitUiConfig() {
+        notifyParentEvent('ui-config', {
+          uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal',
+          frameStyle: getFrameStylePayload(),
+          capabilities: {
+            closeRequest: true,
+            frameStyleBridge: true,
+            uiConfigBridge: true
+          }
+        });
+      }
+
       function notifyLegacyEvent(type, payload) {
         switch (type) {
           case 'landing':
@@ -537,9 +549,12 @@
             exportUploadBridge: false,
             avatarCreatedBridge: true,
             hostManagedUpload: true,
-            frameStyleBridge: true
+            frameStyleBridge: true,
+            uiConfigBridge: true
           }
         });
+
+        emitUiConfig();
 
         if (message.payload.autoStart) {
           queueUnityEntry();
@@ -743,6 +758,7 @@
           notifyParentEvent('frame-style-ack', {
             frameStyle: getFrameStylePayload()
           });
+          emitUiConfig();
           return;
         }
 
@@ -768,8 +784,14 @@
           embedded: true,
           path: window.location.pathname,
           uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal',
-          frameStyle: getFrameStylePayload()
+          frameStyle: getFrameStylePayload(),
+          capabilities: {
+            closeRequest: true,
+            frameStyleBridge: true,
+            uiConfigBridge: true
+          }
         });
+        emitUiConfig();
       }
       window.addEventListener('load', preloadUnityRuntime, { once: true });
       onResize();
