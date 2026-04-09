@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -423,6 +423,10 @@
             hostManagedUpload: true
           }
         });
+
+        if (message.payload.autoStart) {
+          queueUnityEntry();
+        }
       }
 
       function requestParentClose() {
@@ -615,6 +619,11 @@
           return;
         }
 
+        if (message.type === 'ac2:start') {
+          queueUnityEntry();
+          return;
+        }
+
         if (message.type === 'ac2:close') {
           requestParentClose();
         }
@@ -640,3 +649,4 @@
   </script>
 </body>
 </html>
+
