@@ -115,29 +115,19 @@ body.is-embedded .ac2-host-frame {
   inset: 0;
   z-index: 1;
   display: flex;
-  justify-content: var(--ac2-host-frame-justify, center);
-  align-items: var(--ac2-host-frame-align, center);
-  padding:
-    var(--ac2-host-frame-padding-top)
-    var(--ac2-host-frame-padding-right)
-    var(--ac2-host-frame-padding-bottom)
-    var(--ac2-host-frame-padding-left);
+  justify-content: stretch;
+  align-items: stretch;
+  padding: 0;
   pointer-events: none;
 }
 
 body.is-embedded .ac2-host-frame-viewport {
   position: relative;
-  width: min(
-    var(--ac2-host-frame-width),
-    calc(100vw - var(--ac2-host-frame-padding-left) - var(--ac2-host-frame-padding-right))
-  );
-  height: min(
-    var(--ac2-host-frame-height),
-    calc(100vh - var(--ac2-host-frame-padding-top) - var(--ac2-host-frame-padding-bottom))
-  );
+  width: 100%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
-  border-radius: var(--ac2-host-frame-radius);
+  border-radius: 0;
   pointer-events: auto;
   isolation: isolate;
 }
@@ -979,23 +969,13 @@ body.unity-visible #container {
 
 @media (max-width: 960px) {
   body.is-embedded .ac2-host-frame {
-    padding:
-      var(--ac2-host-frame-mobile-padding-top)
-      var(--ac2-host-frame-mobile-padding-right)
-      var(--ac2-host-frame-mobile-padding-bottom)
-      var(--ac2-host-frame-mobile-padding-left);
+    padding: 0;
   }
 
   body.is-embedded .ac2-host-frame-viewport {
-    width: min(
-      var(--ac2-host-frame-width),
-      calc(100vw - var(--ac2-host-frame-mobile-padding-left) - var(--ac2-host-frame-mobile-padding-right))
-    );
-    height: min(
-      var(--ac2-host-frame-height),
-      calc(100vh - var(--ac2-host-frame-mobile-padding-top) - var(--ac2-host-frame-mobile-padding-bottom))
-    );
-    border-radius: var(--ac2-host-frame-mobile-radius);
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
   }
 
   .creator-embed-close {

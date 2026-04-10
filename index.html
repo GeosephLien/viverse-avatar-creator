@@ -131,10 +131,14 @@
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
       const DEFAULT_HOST_FRAME_STYLE = {
+        source: 'ac2',
         placement: 'center',
+        breakpoint: 960,
         panelWidth: 1280,
         panelHeight: 780,
         panelRadius: 28,
+        mobilePanelWidth: null,
+        mobilePanelHeight: 780,
         mobilePanelRadius: 22,
         padding: {
           top: 32,
@@ -147,7 +151,12 @@
           right: 0,
           bottom: 16,
           left: 0
-        }
+        },
+        backdrop: 'rgba(4, 7, 20, 0.58)',
+        backdropFilter: 'blur(12px)',
+        panelBackground: 'rgba(11, 14, 40, 0.96)',
+        frameBackground: '#050814',
+        border: '1px solid rgba(255, 255, 255, 0.18)'
       };
       const urlParams = new URLSearchParams(window.location.search);
 
@@ -197,30 +206,45 @@
         const placement = typeof next.placement === 'string' && next.placement
           ? next.placement
           : DEFAULT_HOST_FRAME_STYLE.placement;
+        const breakpoint = Number.isFinite(next.breakpoint) ? next.breakpoint : DEFAULT_HOST_FRAME_STYLE.breakpoint;
         const panelWidth = Number.isFinite(next.panelWidth) ? next.panelWidth : DEFAULT_HOST_FRAME_STYLE.panelWidth;
         const panelHeight = Number.isFinite(next.panelHeight) ? next.panelHeight : DEFAULT_HOST_FRAME_STYLE.panelHeight;
         const panelRadius = Number.isFinite(next.panelRadius) ? next.panelRadius : DEFAULT_HOST_FRAME_STYLE.panelRadius;
+        const mobilePanelWidth = Number.isFinite(next.mobilePanelWidth) ? next.mobilePanelWidth : DEFAULT_HOST_FRAME_STYLE.mobilePanelWidth;
+        const mobilePanelHeight = Number.isFinite(next.mobilePanelHeight) ? next.mobilePanelHeight : DEFAULT_HOST_FRAME_STYLE.mobilePanelHeight;
         const mobilePanelRadius = Number.isFinite(next.mobilePanelRadius)
           ? next.mobilePanelRadius
           : DEFAULT_HOST_FRAME_STYLE.mobilePanelRadius;
 
         return {
+          source: typeof next.source === 'string' ? next.source : DEFAULT_HOST_FRAME_STYLE.source,
           placement: placement,
+          breakpoint: breakpoint,
           panelWidth: panelWidth,
           panelHeight: panelHeight,
           panelRadius: panelRadius,
+          mobilePanelWidth: mobilePanelWidth,
+          mobilePanelHeight: mobilePanelHeight,
           mobilePanelRadius: mobilePanelRadius,
           padding: cloneFrameInsets(next.padding, DEFAULT_HOST_FRAME_STYLE.padding),
-          mobilePadding: cloneFrameInsets(next.mobilePadding, DEFAULT_HOST_FRAME_STYLE.mobilePadding)
+          mobilePadding: cloneFrameInsets(next.mobilePadding, DEFAULT_HOST_FRAME_STYLE.mobilePadding),
+          backdrop: typeof next.backdrop === 'string' ? next.backdrop : DEFAULT_HOST_FRAME_STYLE.backdrop,
+          backdropFilter: typeof next.backdropFilter === 'string' ? next.backdropFilter : DEFAULT_HOST_FRAME_STYLE.backdropFilter,
+          panelBackground: typeof next.panelBackground === 'string' ? next.panelBackground : DEFAULT_HOST_FRAME_STYLE.panelBackground,
+          frameBackground: typeof next.frameBackground === 'string' ? next.frameBackground : DEFAULT_HOST_FRAME_STYLE.frameBackground,
+          border: typeof next.border === 'string' ? next.border : DEFAULT_HOST_FRAME_STYLE.border
         };
       }
 
       function applyFrameStyle(frameStyle) {
         hostFrameStyle = normalizeFrameStyle(frameStyle);
         document.body.dataset.ac2FramePlacement = hostFrameStyle.placement;
+        document.body.style.setProperty('--ac2-host-frame-breakpoint', hostFrameStyle.breakpoint + 'px');
         document.body.style.setProperty('--ac2-host-frame-width', hostFrameStyle.panelWidth + 'px');
         document.body.style.setProperty('--ac2-host-frame-height', hostFrameStyle.panelHeight + 'px');
         document.body.style.setProperty('--ac2-host-frame-radius', hostFrameStyle.panelRadius + 'px');
+        document.body.style.setProperty('--ac2-host-frame-mobile-width', hostFrameStyle.mobilePanelWidth ? hostFrameStyle.mobilePanelWidth + 'px' : 'var(--ac2-host-frame-width)');
+        document.body.style.setProperty('--ac2-host-frame-mobile-height', hostFrameStyle.mobilePanelHeight ? hostFrameStyle.mobilePanelHeight + 'px' : 'var(--ac2-host-frame-height)');
         document.body.style.setProperty('--ac2-host-frame-mobile-radius', hostFrameStyle.mobilePanelRadius + 'px');
         document.body.style.setProperty('--ac2-host-frame-padding-top', hostFrameStyle.padding.top + 'px');
         document.body.style.setProperty('--ac2-host-frame-padding-right', hostFrameStyle.padding.right + 'px');
@@ -230,14 +254,23 @@
         document.body.style.setProperty('--ac2-host-frame-mobile-padding-right', hostFrameStyle.mobilePadding.right + 'px');
         document.body.style.setProperty('--ac2-host-frame-mobile-padding-bottom', hostFrameStyle.mobilePadding.bottom + 'px');
         document.body.style.setProperty('--ac2-host-frame-mobile-padding-left', hostFrameStyle.mobilePadding.left + 'px');
+        document.body.style.setProperty('--ac2-host-frame-backdrop', hostFrameStyle.backdrop);
+        document.body.style.setProperty('--ac2-host-frame-backdrop-filter', hostFrameStyle.backdropFilter);
+        document.body.style.setProperty('--ac2-host-frame-panel-background', hostFrameStyle.panelBackground);
+        document.body.style.setProperty('--ac2-host-frame-background', hostFrameStyle.frameBackground);
+        document.body.style.setProperty('--ac2-host-frame-border', hostFrameStyle.border);
       }
 
       function getFrameStylePayload() {
         return {
+          source: hostFrameStyle.source,
           placement: hostFrameStyle.placement,
+          breakpoint: hostFrameStyle.breakpoint,
           panelWidth: hostFrameStyle.panelWidth,
           panelHeight: hostFrameStyle.panelHeight,
           panelRadius: hostFrameStyle.panelRadius,
+          mobilePanelWidth: hostFrameStyle.mobilePanelWidth,
+          mobilePanelHeight: hostFrameStyle.mobilePanelHeight,
           mobilePanelRadius: hostFrameStyle.mobilePanelRadius,
           padding: {
             top: hostFrameStyle.padding.top,
@@ -250,7 +283,12 @@
             right: hostFrameStyle.mobilePadding.right,
             bottom: hostFrameStyle.mobilePadding.bottom,
             left: hostFrameStyle.mobilePadding.left
-          }
+          },
+          backdrop: hostFrameStyle.backdrop,
+          backdropFilter: hostFrameStyle.backdropFilter,
+          panelBackground: hostFrameStyle.panelBackground,
+          frameBackground: hostFrameStyle.frameBackground,
+          border: hostFrameStyle.border
         };
       }
 
