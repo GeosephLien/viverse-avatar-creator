@@ -501,6 +501,19 @@
         emitToParent('avatar-created', payload || {});
       }
 
+      function normalizeBridgePayload(payload) {
+        if (typeof payload !== 'string') {
+          return payload || {};
+        }
+
+        try {
+          return JSON.parse(payload);
+        } catch (error) {
+          console.warn('Unable to parse AC2 bridge payload JSON.', error);
+          return {};
+        }
+      }
+
       function isTrustedHostEvent(event) {
         if (!event) {
           return false;
@@ -616,8 +629,12 @@
       setRevealOrigin();
 
       window.AC2Bridge = {
-        avatarCreated: emitAvatarCreated,
-        exportReady: emitExportReady,
+        avatarCreated: function (payload) {
+          emitAvatarCreated(normalizeBridgePayload(payload));
+        },
+        exportReady: function (payload) {
+          emitExportReady(normalizeBridgePayload(payload));
+        },
         blocked: markBlocked,
         error: emitError
       };
