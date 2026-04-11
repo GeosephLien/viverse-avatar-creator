@@ -112,8 +112,8 @@
     <div class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="creation-confirm-title">
       <div class="confirm-panel-header">
         <div class="confirm-panel-copy">
-          <h2 id="creation-confirm-title">Uploading avatar</h2>
-          <p id="creation-confirm-message">Your VRM is being uploaded.</p>
+          <h2 id="creation-confirm-title">Preparing</h2>
+          <p id="creation-confirm-message">Your avatar will be ready soon.</p>
         </div>
       </div>
       <div class="confirm-progress-track" aria-hidden="true">
@@ -156,10 +156,21 @@
       const unityDataUrl = './Build/viverse-avatar-creator.data.unityweb';
       const START_BUTTON_TEXT = 'Create Now!';
       const LOADING_BUTTON_TEXT = 'Loading...';
+      const UPLOAD_PANEL_TITLE = 'Preparing';
+      const UPLOAD_PANEL_MESSAGE = 'Your avatar will be ready soon.';
       const RUNTIME_EXPORTER_GAME_OBJECT = 'RuntimeClothingMergerAndExporter';
       const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
+      const EXTERNAL_UPLOAD_PANEL_CONFIG = {
+        enabled: true,
+        title: UPLOAD_PANEL_TITLE,
+        message: UPLOAD_PANEL_MESSAGE,
+        gradient: 'linear-gradient(102deg, #4f6df2, #7a67ea 50%, #b566d8)',
+        background: 'rgba(11, 14, 40, 0.96)',
+        border: '1px solid rgba(255, 255, 255, 0.16)',
+        track: 'rgba(255, 255, 255, 0.14)'
+      };
       const DEFAULT_HOST_FRAME_STYLE = {
         source: 'ac2',
         placement: 'center',
@@ -433,10 +444,14 @@
         }
 
         const percent = getUploadPercent();
+        const panelMessage = uploadOverlayState.errorMessage || UPLOAD_PANEL_MESSAGE;
+        const panelTitle = uploadOverlayState.errorMessage ? 'Upload failed' : UPLOAD_PANEL_TITLE;
+        const titleElement = document.getElementById('creation-confirm-title');
+        if (titleElement) {
+          titleElement.textContent = panelTitle;
+        }
         if (creationConfirmMessage) {
-          creationConfirmMessage.textContent = uploadOverlayState.errorMessage
-            ? uploadOverlayState.errorMessage
-            : 'Your VRM is being uploaded.';
+          creationConfirmMessage.textContent = panelMessage;
         }
         if (creationConfirmProgressBar) {
           creationConfirmProgressBar.style.width = percent + '%';
@@ -622,6 +637,10 @@
         });
       }
 
+      function emitExternalUploadPanelConfig() {
+        notifyParentEvent('external-upload-panel-config', EXTERNAL_UPLOAD_PANEL_CONFIG);
+      }
+
       function notifyLegacyEvent(type, payload) {
         switch (type) {
           case 'landing':
@@ -774,6 +793,7 @@
         });
 
         emitUiConfig();
+        emitExternalUploadPanelConfig();
 
         if (message.payload.autoStart) {
           queueUnityEntry();
@@ -1073,6 +1093,7 @@
           }
         });
         emitUiConfig();
+        emitExternalUploadPanelConfig();
       }
       window.addEventListener('load', preloadUnityRuntime, { once: true });
       onResize();
