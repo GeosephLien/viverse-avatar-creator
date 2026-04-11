@@ -463,14 +463,37 @@
         renderUploadOverlay();
       }
 
-      function restartUnityRuntime(options) {
+      function resetToLanding(options) {
         const nextOptions = options || {};
+        enterRequested = false;
+        hasEnteredUnity = false;
+
+        if (revealFinalizeTimerId !== null) {
+          window.clearTimeout(revealFinalizeTimerId);
+          revealFinalizeTimerId = null;
+        }
+
+        hideLoadingOverlay();
         if (!nextOptions.preserveUploadUi) {
           resetUploadOverlayState();
         }
+        document.body.classList.remove('enter-unity');
+        document.body.classList.remove('unity-visible');
+        landingShell.setAttribute('aria-hidden', 'false');
+        container.setAttribute('aria-hidden', 'true');
+        loadingBar.style.width = '0%';
+        canvas.style.width = '0px';
+        canvas.style.height = '0px';
+        notifyParentEvent('landing');
+      }
+
+      function restartUnityRuntime(options) {
+        const nextOptions = options || {};
+        resetToLanding({
+          preserveUploadUi: nextOptions.preserveUploadUi
+        });
 
         if (!unityInstance || typeof unityInstance.SendMessage !== 'function') {
-          resetToLanding();
           return false;
         }
 
@@ -501,25 +524,6 @@
           reason: 'upload-hidden',
           restoreDefaultFrameStyle: true
         });
-      }
-
-      function resetToLanding() {
-        enterRequested = false;
-        hasEnteredUnity = false;
-
-        if (revealFinalizeTimerId !== null) {
-          window.clearTimeout(revealFinalizeTimerId);
-          revealFinalizeTimerId = null;
-        }
-
-        hideLoadingOverlay();
-        resetUploadOverlayState();
-        document.body.classList.remove('enter-unity');
-        document.body.classList.remove('unity-visible');
-        landingShell.setAttribute('aria-hidden', 'false');
-        container.setAttribute('aria-hidden', 'true');
-        loadingBar.style.width = '0%';
-        notifyParentEvent('landing');
       }
 
       function enterUnity() {

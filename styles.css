@@ -284,10 +284,15 @@ body.is-embedded .creator-embed-close {
 
 .confirm-actions {
   margin-top: 1rem;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .confirm-action-button {
-  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
   padding: 0.78rem 1rem;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
