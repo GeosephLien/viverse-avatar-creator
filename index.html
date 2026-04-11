@@ -110,11 +110,22 @@
   <input id="upload-vrm-input" type="file" accept=".vrm,model/vrm" hidden>
   <div id="creation-confirm-overlay" class="confirm-overlay" hidden aria-hidden="true">
     <div class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="creation-confirm-title">
-      <h2 id="creation-confirm-title">Avatar saved</h2>
-      <p>Your VRM is ready. Create another one or close AC2.</p>
-      <div class="confirm-actions">
-        <button class="confirm-button confirm-button-secondary" type="button" data-confirm-create-again>Create Again</button>
-        <button class="confirm-button confirm-button-primary" type="button" data-confirm-close>Close</button>
+      <div class="confirm-panel-header">
+        <div class="confirm-panel-copy">
+          <h2 id="creation-confirm-title">Uploading avatar</h2>
+          <p id="creation-confirm-message">Your VRM is being uploaded.</p>
+        </div>
+        <div class="confirm-panel-controls">
+          <button class="confirm-icon-button" type="button" data-confirm-minimize aria-label="Minimize upload panel">_</button>
+          <button class="confirm-icon-button" type="button" data-confirm-hide aria-label="Hide upload panel">×</button>
+        </div>
+      </div>
+      <div class="confirm-progress-track" aria-hidden="true">
+        <div id="creation-confirm-progress-bar" class="confirm-progress-bar"></div>
+      </div>
+      <div class="confirm-progress-meta">
+        <span id="creation-confirm-progress-text">0%</span>
+        <span id="creation-confirm-progress-detail">Preparing upload...</span>
       </div>
     </div>
   </div>
@@ -131,12 +142,16 @@
       const container = document.getElementById('container');
       const frameViewport = document.querySelector('.ac2-host-frame-viewport');
       const creationConfirmOverlay = document.getElementById('creation-confirm-overlay');
-      const creationConfirmCreateAgainButton = creationConfirmOverlay
-        ? creationConfirmOverlay.querySelector('[data-confirm-create-again]')
+      const creationConfirmMinimizeButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-minimize]')
         : null;
-      const creationConfirmCloseButton = creationConfirmOverlay
-        ? creationConfirmOverlay.querySelector('[data-confirm-close]')
+      const creationConfirmHideButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-hide]')
         : null;
+      const creationConfirmMessage = document.getElementById('creation-confirm-message');
+      const creationConfirmProgressBar = document.getElementById('creation-confirm-progress-bar');
+      const creationConfirmProgressText = document.getElementById('creation-confirm-progress-text');
+      const creationConfirmProgressDetail = document.getElementById('creation-confirm-progress-detail');
       const canvasElement = document.getElementById('game-canvas');
       const versionBadge = document.getElementById('player-version');
       const unityLoaderUrl = './Build/viverse-avatar-creator.loader.js';
@@ -149,6 +164,34 @@
       const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
+      const MINIMIZED_HOST_FRAME_STYLE = {
+        source: 'ac2-upload-minimized',
+        placement: 'bottom-right',
+        breakpoint: 960,
+        panelWidth: 360,
+        panelHeight: 220,
+        panelRadius: 20,
+        mobilePanelWidth: 320,
+        mobilePanelHeight: 204,
+        mobilePanelRadius: 18,
+        padding: {
+          top: 32,
+          right: 32,
+          bottom: 32,
+          left: 32
+        },
+        mobilePadding: {
+          top: 0,
+          right: 16,
+          bottom: 16,
+          left: 16
+        },
+        backdrop: 'transparent',
+        backdropFilter: 'none',
+        panelBackground: 'rgba(11, 14, 40, 0.96)',
+        frameBackground: '#050814',
+        border: '1px solid rgba(255, 255, 255, 0.16)'
+      };
       const DEFAULT_HOST_FRAME_STYLE = {
         source: 'ac2',
         placement: 'center',
@@ -194,6 +237,16 @@
       let hostOrigin = '*';
       let hostSource = null;
       let hostFrameStyle = DEFAULT_HOST_FRAME_STYLE;
+      let uploadOverlayState = {
+        active: false,
+        minimized: false,
+        hidden: false,
+        restartIssued: false,
+        errorMessage: '',
+        fileName: 'avatar.vrm',
+        loadedBytes: 0,
+        totalBytes: 0
+      };
 
       try {
         if (document.referrer) {
@@ -369,28 +422,89 @@
         }
       }
 
-      function hideCreationConfirmPanel() {
-        if (!creationConfirmOverlay) {
-          return;
+      function formatUploadBytes(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) {
+          return '0 B';
         }
 
-        creationConfirmOverlay.hidden = true;
-        creationConfirmOverlay.setAttribute('aria-hidden', 'true');
+        const units = ['B', 'KB', 'MB', 'GB'];
+        let value = bytes;
+        let unitIndex = 0;
+        while (value >= 1024 && unitIndex < units.length - 1) {
+          value /= 1024;
+          unitIndex += 1;
+        }
+
+        const rounded = value >= 10 || unitIndex === 0 ? Math.round(value) : value.toFixed(1);
+        return rounded + ' ' + units[unitIndex];
       }
 
-      function showCreationConfirmPanel() {
+      function getUploadPercent() {
+        if (!uploadOverlayState.active) {
+          return 0;
+        }
+
+        if (!Number.isFinite(uploadOverlayState.totalBytes) || uploadOverlayState.totalBytes <= 0) {
+          return 0;
+        }
+
+        return Math.max(0, Math.min(100, Math.round((uploadOverlayState.loadedBytes / uploadOverlayState.totalBytes) * 100)));
+      }
+
+      function renderUploadOverlay() {
         if (!creationConfirmOverlay) {
           return;
         }
 
-        creationConfirmOverlay.hidden = false;
-        creationConfirmOverlay.setAttribute('aria-hidden', 'false');
+        const shouldShow = uploadOverlayState.active && !uploadOverlayState.hidden;
+        creationConfirmOverlay.hidden = !shouldShow;
+        creationConfirmOverlay.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+        creationConfirmOverlay.dataset.mode = uploadOverlayState.minimized ? 'minimized' : 'expanded';
+
+        if (!shouldShow) {
+          emitConfirmState(false);
+          return;
+        }
+
+        const percent = getUploadPercent();
+        if (creationConfirmMessage) {
+          creationConfirmMessage.textContent = uploadOverlayState.errorMessage
+            ? uploadOverlayState.errorMessage
+            : (uploadOverlayState.minimized
+              ? 'Upload continues while AC2 stays minimized.'
+              : 'Your VRM is being uploaded.');
+        }
+        if (creationConfirmProgressBar) {
+          creationConfirmProgressBar.style.width = percent + '%';
+        }
+        if (creationConfirmProgressText) {
+          creationConfirmProgressText.textContent = percent + '%';
+        }
+        if (creationConfirmProgressDetail) {
+          creationConfirmProgressDetail.textContent = formatUploadBytes(uploadOverlayState.loadedBytes) + ' / ' + formatUploadBytes(uploadOverlayState.totalBytes);
+        }
         emitConfirmState(true);
       }
 
-      function restartUnityRuntime() {
-        hideCreationConfirmPanel();
-        emitConfirmState(false);
+      function resetUploadOverlayState() {
+        uploadOverlayState = {
+          active: false,
+          minimized: false,
+          hidden: false,
+          restartIssued: false,
+          errorMessage: '',
+          fileName: 'avatar.vrm',
+          loadedBytes: 0,
+          totalBytes: 0
+        };
+        renderUploadOverlay();
+      }
+
+      function restartUnityRuntime(options) {
+        const nextOptions = options || {};
+        if (!nextOptions.preserveUploadUi) {
+          resetUploadOverlayState();
+        }
 
         if (!unityInstance || typeof unityInstance.SendMessage !== 'function') {
           resetToLanding();
@@ -399,6 +513,31 @@
 
         unityInstance.SendMessage(RUNTIME_EXPORTER_GAME_OBJECT, RUNTIME_EXPORTER_RESTART_METHOD);
         return true;
+      }
+
+      function ensureUploadRuntimeRestarted() {
+        if (uploadOverlayState.restartIssued) {
+          return;
+        }
+
+        uploadOverlayState.restartIssued = true;
+        restartUnityRuntime({
+          preserveUploadUi: true
+        });
+      }
+
+      function handleUploadMinimizeRequest() {
+        if (!uploadOverlayState.active) {
+          return;
+        }
+
+        uploadOverlayState.minimized = true;
+        uploadOverlayState.hidden = false;
+        ensureUploadRuntimeRestarted();
+        renderUploadOverlay();
+        emitToParent('upload-minimize-request', {
+          frameStyle: MINIMIZED_HOST_FRAME_STYLE
+        });
       }
 
       function resetToLanding() {
@@ -411,7 +550,7 @@
         }
 
         hideLoadingOverlay();
-        hideCreationConfirmPanel();
+        resetUploadOverlayState();
         document.body.classList.remove('enter-unity');
         document.body.classList.remove('unity-visible');
         landingShell.setAttribute('aria-hidden', 'false');
@@ -707,34 +846,24 @@
       }
 
       creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', function () {
+        if (uploadOverlayState.active) {
+          handleUploadMinimizeRequest();
+          return;
+        }
+
         requestParentClose();
       });
-      creationConfirmCreateAgainButton && creationConfirmCreateAgainButton.addEventListener('click', restartUnityRuntime);
-      creationConfirmCloseButton && creationConfirmCloseButton.addEventListener('click', function () {
-        hideCreationConfirmPanel();
-        if (isEmbedded) {
-          requestParentClose({
-            restartOnClose: true
-          });
-          return;
-        }
-
-        restartUnityRuntime();
+      creationConfirmMinimizeButton && creationConfirmMinimizeButton.addEventListener('click', handleUploadMinimizeRequest);
+      creationConfirmHideButton && creationConfirmHideButton.addEventListener('click', function () {
+        uploadOverlayState.hidden = true;
+        renderUploadOverlay();
       });
       creationConfirmOverlay && creationConfirmOverlay.addEventListener('click', function (event) {
-        if (event.target !== creationConfirmOverlay) {
+        if (event.target !== creationConfirmOverlay || uploadOverlayState.minimized || !uploadOverlayState.active) {
           return;
         }
 
-        hideCreationConfirmPanel();
-        if (isEmbedded) {
-          requestParentClose({
-            restartOnClose: true
-          });
-          return;
-        }
-
-        restartUnityRuntime();
+        handleUploadMinimizeRequest();
       });
 
       (() => {
@@ -888,12 +1017,62 @@
         }
 
         if (message.type === 'avatar-creator-reset' || message.type === 'ac2:reset') {
-          restartUnityRuntime();
+          restartUnityRuntime({
+            preserveUploadUi: uploadOverlayState.active
+          });
+          return;
+        }
+
+        if (message.type === 'ac2:upload-started') {
+          uploadOverlayState.active = true;
+          uploadOverlayState.hidden = false;
+          uploadOverlayState.minimized = false;
+          uploadOverlayState.restartIssued = false;
+          uploadOverlayState.errorMessage = '';
+          uploadOverlayState.fileName = message.payload && message.payload.fileName ? message.payload.fileName : 'avatar.vrm';
+          uploadOverlayState.loadedBytes = 0;
+          uploadOverlayState.totalBytes = message.payload && Number.isFinite(message.payload.totalBytes)
+            ? message.payload.totalBytes
+            : 0;
+          renderUploadOverlay();
+          return;
+        }
+
+        if (message.type === 'ac2:upload-progress') {
+          uploadOverlayState.active = true;
+          uploadOverlayState.loadedBytes = message.payload && Number.isFinite(message.payload.loadedBytes)
+            ? message.payload.loadedBytes
+            : uploadOverlayState.loadedBytes;
+          uploadOverlayState.totalBytes = message.payload && Number.isFinite(message.payload.totalBytes)
+            ? message.payload.totalBytes
+            : uploadOverlayState.totalBytes;
+          if (message.payload && message.payload.fileName) {
+            uploadOverlayState.fileName = message.payload.fileName;
+          }
+          renderUploadOverlay();
           return;
         }
 
         if (message.type === 'ac2:upload-complete') {
-          showCreationConfirmPanel();
+          uploadOverlayState.loadedBytes = uploadOverlayState.totalBytes;
+          renderUploadOverlay();
+          ensureUploadRuntimeRestarted();
+          resetUploadOverlayState();
+          requestParentClose({
+            reason: 'upload-complete',
+            restoreDefaultFrameStyle: true
+          });
+          return;
+        }
+
+        if (message.type === 'ac2:upload-failed') {
+          uploadOverlayState.active = true;
+          uploadOverlayState.hidden = false;
+          uploadOverlayState.minimized = false;
+          uploadOverlayState.errorMessage = message.payload && message.payload.message
+            ? message.payload.message
+            : 'VRM upload failed.';
+          renderUploadOverlay();
           return;
         }
 
@@ -923,6 +1102,11 @@
       });
       window.addEventListener('keydown', function (event) {
         if (event.key === 'Escape' && isEmbedded) {
+          if (uploadOverlayState.active) {
+            handleUploadMinimizeRequest();
+            return;
+          }
+
           requestParentClose();
         }
       });
