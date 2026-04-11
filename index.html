@@ -115,10 +115,6 @@
           <h2 id="creation-confirm-title">Uploading avatar</h2>
           <p id="creation-confirm-message">Your VRM is being uploaded.</p>
         </div>
-        <div class="confirm-panel-controls">
-          <button class="confirm-icon-button" type="button" data-confirm-minimize aria-label="Minimize upload panel">_</button>
-          <button class="confirm-icon-button" type="button" data-confirm-hide aria-label="Hide upload panel">×</button>
-        </div>
       </div>
       <div class="confirm-progress-track" aria-hidden="true">
         <div id="creation-confirm-progress-bar" class="confirm-progress-bar"></div>
@@ -126,6 +122,9 @@
       <div class="confirm-progress-meta">
         <span id="creation-confirm-progress-text">0%</span>
         <span id="creation-confirm-progress-detail">Preparing upload...</span>
+      </div>
+      <div class="confirm-actions">
+        <button class="confirm-action-button" type="button" data-confirm-hide-panel>Hide Panel</button>
       </div>
     </div>
   </div>
@@ -142,11 +141,8 @@
       const container = document.getElementById('container');
       const frameViewport = document.querySelector('.ac2-host-frame-viewport');
       const creationConfirmOverlay = document.getElementById('creation-confirm-overlay');
-      const creationConfirmMinimizeButton = creationConfirmOverlay
-        ? creationConfirmOverlay.querySelector('[data-confirm-minimize]')
-        : null;
-      const creationConfirmHideButton = creationConfirmOverlay
-        ? creationConfirmOverlay.querySelector('[data-confirm-hide]')
+      const creationConfirmHidePanelButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-hide-panel]')
         : null;
       const creationConfirmMessage = document.getElementById('creation-confirm-message');
       const creationConfirmProgressBar = document.getElementById('creation-confirm-progress-bar');
@@ -164,34 +160,6 @@
       const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
-      const MINIMIZED_HOST_FRAME_STYLE = {
-        source: 'ac2-upload-minimized',
-        placement: 'bottom-right',
-        breakpoint: 960,
-        panelWidth: 360,
-        panelHeight: 220,
-        panelRadius: 20,
-        mobilePanelWidth: 320,
-        mobilePanelHeight: 204,
-        mobilePanelRadius: 18,
-        padding: {
-          top: 32,
-          right: 32,
-          bottom: 32,
-          left: 32
-        },
-        mobilePadding: {
-          top: 0,
-          right: 16,
-          bottom: 16,
-          left: 16
-        },
-        backdrop: 'transparent',
-        backdropFilter: 'none',
-        panelBackground: 'rgba(11, 14, 40, 0.96)',
-        frameBackground: '#050814',
-        border: '1px solid rgba(255, 255, 255, 0.16)'
-      };
       const DEFAULT_HOST_FRAME_STYLE = {
         source: 'ac2',
         placement: 'center',
@@ -239,7 +207,6 @@
       let hostFrameStyle = DEFAULT_HOST_FRAME_STYLE;
       let uploadOverlayState = {
         active: false,
-        minimized: false,
         hidden: false,
         restartIssued: false,
         errorMessage: '',
@@ -459,7 +426,6 @@
         const shouldShow = uploadOverlayState.active && !uploadOverlayState.hidden;
         creationConfirmOverlay.hidden = !shouldShow;
         creationConfirmOverlay.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
-        creationConfirmOverlay.dataset.mode = uploadOverlayState.minimized ? 'minimized' : 'expanded';
 
         if (!shouldShow) {
           emitConfirmState(false);
@@ -470,9 +436,7 @@
         if (creationConfirmMessage) {
           creationConfirmMessage.textContent = uploadOverlayState.errorMessage
             ? uploadOverlayState.errorMessage
-            : (uploadOverlayState.minimized
-              ? 'Upload continues while AC2 stays minimized.'
-              : 'Your VRM is being uploaded.');
+            : 'Your VRM is being uploaded.';
         }
         if (creationConfirmProgressBar) {
           creationConfirmProgressBar.style.width = percent + '%';
@@ -489,7 +453,6 @@
       function resetUploadOverlayState() {
         uploadOverlayState = {
           active: false,
-          minimized: false,
           hidden: false,
           restartIssued: false,
           errorMessage: '',
@@ -526,17 +489,17 @@
         });
       }
 
-      function handleUploadMinimizeRequest() {
+      function handleUploadHideRequest() {
         if (!uploadOverlayState.active) {
           return;
         }
 
-        uploadOverlayState.minimized = true;
-        uploadOverlayState.hidden = false;
+        uploadOverlayState.hidden = true;
         ensureUploadRuntimeRestarted();
         renderUploadOverlay();
-        emitToParent('upload-minimize-request', {
-          frameStyle: MINIMIZED_HOST_FRAME_STYLE
+        requestParentClose({
+          reason: 'upload-hidden',
+          restoreDefaultFrameStyle: true
         });
       }
 
@@ -847,24 +810,13 @@
 
       creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', function () {
         if (uploadOverlayState.active) {
-          handleUploadMinimizeRequest();
+          handleUploadHideRequest();
           return;
         }
 
         requestParentClose();
       });
-      creationConfirmMinimizeButton && creationConfirmMinimizeButton.addEventListener('click', handleUploadMinimizeRequest);
-      creationConfirmHideButton && creationConfirmHideButton.addEventListener('click', function () {
-        uploadOverlayState.hidden = true;
-        renderUploadOverlay();
-      });
-      creationConfirmOverlay && creationConfirmOverlay.addEventListener('click', function (event) {
-        if (event.target !== creationConfirmOverlay || uploadOverlayState.minimized || !uploadOverlayState.active) {
-          return;
-        }
-
-        handleUploadMinimizeRequest();
-      });
+      creationConfirmHidePanelButton && creationConfirmHidePanelButton.addEventListener('click', handleUploadHideRequest);
 
       (() => {
         const slides = Array.prototype.slice.call(document.querySelectorAll('.hero-slide'));
@@ -1026,7 +978,6 @@
         if (message.type === 'ac2:upload-started') {
           uploadOverlayState.active = true;
           uploadOverlayState.hidden = false;
-          uploadOverlayState.minimized = false;
           uploadOverlayState.restartIssued = false;
           uploadOverlayState.errorMessage = '';
           uploadOverlayState.fileName = message.payload && message.payload.fileName ? message.payload.fileName : 'avatar.vrm';
@@ -1068,7 +1019,6 @@
         if (message.type === 'ac2:upload-failed') {
           uploadOverlayState.active = true;
           uploadOverlayState.hidden = false;
-          uploadOverlayState.minimized = false;
           uploadOverlayState.errorMessage = message.payload && message.payload.message
             ? message.payload.message
             : 'VRM upload failed.';
@@ -1097,16 +1047,6 @@
         }
 
         if (message.type === 'ac2:close') {
-          requestParentClose();
-        }
-      });
-      window.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && isEmbedded) {
-          if (uploadOverlayState.active) {
-            handleUploadMinimizeRequest();
-            return;
-          }
-
           requestParentClose();
         }
       });
