@@ -746,6 +746,10 @@
         updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
         applyFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle);
         onResize();
+        if (uploadOverlayState.active) {
+          uploadOverlayState.hidden = false;
+          renderUploadOverlay();
+        }
 
         const validationError = validateHostPayload(message.payload);
         if (validationError) {
