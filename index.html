@@ -385,10 +385,12 @@
 
         creationConfirmOverlay.hidden = false;
         creationConfirmOverlay.setAttribute('aria-hidden', 'false');
+        emitConfirmState(true);
       }
 
       function restartUnityRuntime() {
         hideCreationConfirmPanel();
+        emitConfirmState(false);
 
         if (!unityInstance || typeof unityInstance.SendMessage !== 'function') {
           resetToLanding();
@@ -495,6 +497,12 @@
 
       function notifyParentEvent(type, payload) {
         notifyParent(createMessage(type, payload));
+      }
+
+      function emitConfirmState(isOpen) {
+        emitToParent('confirm-state', {
+          open: Boolean(isOpen)
+        });
       }
 
       function emitUiConfig() {
@@ -663,9 +671,9 @@
         }
       }
 
-      function requestParentClose() {
+      function requestParentClose(payload) {
         if (!isEmbedded) return;
-        emitToParent('close-request');
+        emitToParent('close-request', payload || {});
       }
 
       function handleUploadSelection() {
@@ -698,12 +706,31 @@
         uploadVrmInput.addEventListener('change', handleUploadSelection);
       }
 
-      creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', requestParentClose);
+      creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', function () {
+        requestParentClose();
+      });
       creationConfirmCreateAgainButton && creationConfirmCreateAgainButton.addEventListener('click', restartUnityRuntime);
       creationConfirmCloseButton && creationConfirmCloseButton.addEventListener('click', function () {
         hideCreationConfirmPanel();
         if (isEmbedded) {
-          requestParentClose();
+          requestParentClose({
+            restartOnClose: true
+          });
+          return;
+        }
+
+        restartUnityRuntime();
+      });
+      creationConfirmOverlay && creationConfirmOverlay.addEventListener('click', function (event) {
+        if (event.target !== creationConfirmOverlay) {
+          return;
+        }
+
+        hideCreationConfirmPanel();
+        if (isEmbedded) {
+          requestParentClose({
+            restartOnClose: true
+          });
           return;
         }
 
