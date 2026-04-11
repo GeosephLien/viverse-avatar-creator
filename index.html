@@ -108,6 +108,16 @@
   </div>
 
   <input id="upload-vrm-input" type="file" accept=".vrm,model/vrm" hidden>
+  <div id="creation-confirm-overlay" class="confirm-overlay" hidden aria-hidden="true">
+    <div class="confirm-panel" role="dialog" aria-modal="true" aria-labelledby="creation-confirm-title">
+      <h2 id="creation-confirm-title">Avatar saved</h2>
+      <p>Your VRM is ready. Create another one or close AC2.</p>
+      <div class="confirm-actions">
+        <button class="confirm-button confirm-button-secondary" type="button" data-confirm-create-again>Create Again</button>
+        <button class="confirm-button confirm-button-primary" type="button" data-confirm-close>Close</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     (() => {
@@ -120,6 +130,13 @@
       const landingShell = document.querySelector('.landing-shell');
       const container = document.getElementById('container');
       const frameViewport = document.querySelector('.ac2-host-frame-viewport');
+      const creationConfirmOverlay = document.getElementById('creation-confirm-overlay');
+      const creationConfirmCreateAgainButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-create-again]')
+        : null;
+      const creationConfirmCloseButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-close]')
+        : null;
       const canvasElement = document.getElementById('game-canvas');
       const versionBadge = document.getElementById('player-version');
       const unityLoaderUrl = './Build/viverse-avatar-creator.loader.js';
@@ -128,6 +145,8 @@
       const unityDataUrl = './Build/viverse-avatar-creator.data.unityweb';
       const START_BUTTON_TEXT = 'Create Now!';
       const LOADING_BUTTON_TEXT = 'Loading...';
+      const RUNTIME_EXPORTER_GAME_OBJECT = 'RuntimeClothingMergerAndExporter';
+      const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
       const isEmbedded = window.parent && window.parent !== window;
       const AC2_PROTOCOL_VERSION = '1.0';
       const DEFAULT_HOST_FRAME_STYLE = {
@@ -170,6 +189,7 @@
       let unityRuntimeReady = false;
       let unityRuntimePreloadPromise = null;
       let unityInstancePromise = null;
+      let unityInstance = null;
       let hostContext = null;
       let hostOrigin = '*';
       let hostSource = null;
@@ -349,6 +369,36 @@
         }
       }
 
+      function hideCreationConfirmPanel() {
+        if (!creationConfirmOverlay) {
+          return;
+        }
+
+        creationConfirmOverlay.hidden = true;
+        creationConfirmOverlay.setAttribute('aria-hidden', 'true');
+      }
+
+      function showCreationConfirmPanel() {
+        if (!creationConfirmOverlay) {
+          return;
+        }
+
+        creationConfirmOverlay.hidden = false;
+        creationConfirmOverlay.setAttribute('aria-hidden', 'false');
+      }
+
+      function restartUnityRuntime() {
+        hideCreationConfirmPanel();
+
+        if (!unityInstance || typeof unityInstance.SendMessage !== 'function') {
+          resetToLanding();
+          return false;
+        }
+
+        unityInstance.SendMessage(RUNTIME_EXPORTER_GAME_OBJECT, RUNTIME_EXPORTER_RESTART_METHOD);
+        return true;
+      }
+
       function resetToLanding() {
         enterRequested = false;
         hasEnteredUnity = false;
@@ -359,6 +409,7 @@
         }
 
         hideLoadingOverlay();
+        hideCreationConfirmPanel();
         document.body.classList.remove('enter-unity');
         document.body.classList.remove('unity-visible');
         landingShell.setAttribute('aria-hidden', 'false');
@@ -648,6 +699,16 @@
       }
 
       creatorCloseRequestButton && creatorCloseRequestButton.addEventListener('click', requestParentClose);
+      creationConfirmCreateAgainButton && creationConfirmCreateAgainButton.addEventListener('click', restartUnityRuntime);
+      creationConfirmCloseButton && creationConfirmCloseButton.addEventListener('click', function () {
+        hideCreationConfirmPanel();
+        if (isEmbedded) {
+          requestParentClose();
+          return;
+        }
+
+        restartUnityRuntime();
+      });
 
       (() => {
         const slides = Array.prototype.slice.call(document.querySelectorAll('.hero-slide'));
@@ -736,6 +797,7 @@
             frameworkUrl: unityFrameworkUrl,
             codeUrl: unityCodeUrl
           }, progressHandler).then(function (instance) {
+            unityInstance = instance;
             unityReady = true;
             canvas = instance.Module.canvas;
             loadingBar.style.width = '100%';
@@ -749,6 +811,7 @@
             return instance;
           }).catch(function (error) {
             unityLoadStarted = false;
+            unityInstance = null;
             unityInstancePromise = null;
             showLoadingOverlay();
             console.error(error);
@@ -798,7 +861,12 @@
         }
 
         if (message.type === 'avatar-creator-reset' || message.type === 'ac2:reset') {
-          resetToLanding();
+          restartUnityRuntime();
+          return;
+        }
+
+        if (message.type === 'ac2:upload-complete') {
+          showCreationConfirmPanel();
           return;
         }
 
