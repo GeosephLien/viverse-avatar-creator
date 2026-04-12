@@ -1054,6 +1054,13 @@ body.show-loading-overlay .loading-overlay {
   pointer-events: auto;
 }
 
+body.show-loading-overlay #cta {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+
 body.enter-unity .landing-shell,
 body.enter-unity #player-version {
   pointer-events: none;
@@ -1206,6 +1213,7 @@ body.unity-visible #container {
     width: 100%;
   }
 }
+
 
 
 
