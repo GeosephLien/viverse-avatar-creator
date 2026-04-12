@@ -226,7 +226,7 @@ body.is-embedded .creator-embed-close {
   padding: 1.2rem 1.2rem 1.1rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 24px;
-  background: rgba(11, 14, 40, 0.94);
+  background: linear-gradient(90deg, #060d36 0%, #150d3a 50%, #3c1556 100%);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
 }
 
@@ -1224,6 +1224,7 @@ body.unity-visible #container {
     width: 100%;
   }
 }
+
 
 
 
