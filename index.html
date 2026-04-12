@@ -199,34 +199,6 @@
         frameBackground: '#050814',
         border: '1px solid rgba(255, 255, 255, 0.18)'
       };
-      const MOBILE_LANDSCAPE_HOST_FRAME_STYLE = {
-        source: 'ac2-mobile-landscape',
-        placement: 'center',
-        breakpoint: 960,
-        panelWidth: 960,
-        panelHeight: 430,
-        panelRadius: 28,
-        mobilePanelWidth: 960,
-        mobilePanelHeight: 430,
-        mobilePanelRadius: 28,
-        padding: {
-          top: 24,
-          right: 24,
-          bottom: 24,
-          left: 24
-        },
-        mobilePadding: {
-          top: 12,
-          right: 12,
-          bottom: 12,
-          left: 12
-        },
-        backdrop: 'rgba(4, 7, 20, 0.58)',
-        backdropFilter: 'blur(12px)',
-        panelBackground: 'rgba(11, 14, 40, 0.96)',
-        frameBackground: '#050814',
-        border: '1px solid rgba(255, 255, 255, 0.18)'
-      };
       const urlParams = new URLSearchParams(window.location.search);
 
       let canvas = canvasElement;
@@ -340,24 +312,6 @@
         document.body.style.setProperty('--ac2-host-frame-border', hostFrameStyle.border);
       }
 
-      function isCompactLandscapeViewport() {
-        const viewportSize = getHostViewportSize();
-        return viewportSize.width <= DEFAULT_HOST_FRAME_STYLE.breakpoint && viewportSize.width > viewportSize.height;
-      }
-
-      function getResponsiveHostFrameStyle(baseFrameStyle) {
-        const base = normalizeFrameStyle(baseFrameStyle || DEFAULT_HOST_FRAME_STYLE);
-        if (!isCompactLandscapeViewport()) {
-          return base;
-        }
-
-        return normalizeFrameStyle({
-          ...base,
-          ...MOBILE_LANDSCAPE_HOST_FRAME_STYLE,
-          source: MOBILE_LANDSCAPE_HOST_FRAME_STYLE.source
-        });
-      }
-
       function getFrameStylePayload() {
         return {
           source: hostFrameStyle.source,
@@ -409,34 +363,6 @@
 
       function onResize() {
         const viewportSize = getHostViewportSize();
-        const responsiveFrameStyle = getResponsiveHostFrameStyle(hostFrameStyle);
-        const currentPayload = JSON.stringify(getFrameStylePayload());
-        const nextPayload = JSON.stringify({
-          source: responsiveFrameStyle.source,
-          placement: responsiveFrameStyle.placement,
-          breakpoint: responsiveFrameStyle.breakpoint,
-          panelWidth: responsiveFrameStyle.panelWidth,
-          panelHeight: responsiveFrameStyle.panelHeight,
-          panelRadius: responsiveFrameStyle.panelRadius,
-          mobilePanelWidth: responsiveFrameStyle.mobilePanelWidth,
-          mobilePanelHeight: responsiveFrameStyle.mobilePanelHeight,
-          mobilePanelRadius: responsiveFrameStyle.mobilePanelRadius,
-          padding: responsiveFrameStyle.padding,
-          mobilePadding: responsiveFrameStyle.mobilePadding,
-          backdrop: responsiveFrameStyle.backdrop,
-          backdropFilter: responsiveFrameStyle.backdropFilter,
-          panelBackground: responsiveFrameStyle.panelBackground,
-          frameBackground: responsiveFrameStyle.frameBackground,
-          border: responsiveFrameStyle.border
-        });
-
-        if (currentPayload !== nextPayload) {
-          applyFrameStyle(responsiveFrameStyle);
-          if (isEmbedded) {
-            emitUiConfig();
-          }
-        }
-
         setRevealOrigin();
         canvas.style.width = viewportSize.width + 'px';
         canvas.style.height = viewportSize.height + 'px';
@@ -837,7 +763,7 @@
         };
 
         updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
-        applyFrameStyle(getResponsiveHostFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle));
+        applyFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle);
         onResize();
         if (uploadOverlayState.active) {
           uploadOverlayState.hidden = false;
