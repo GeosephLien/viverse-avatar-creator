@@ -1189,6 +1189,49 @@ body.unity-visible #container {
 
 }
 
+@media (max-width: 960px) and (orientation: landscape) {
+  .hero {
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 1rem;
+  }
+
+  .hero-copy {
+    align-items: flex-start;
+    text-align: left;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .hero-copy h1 {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .cta-row {
+    justify-content: flex-start;
+  }
+
+  .desc {
+    margin-left: 0;
+    margin-right: 0;
+    max-width: min(44vw, 420px);
+  }
+
+  .hero-visual {
+    min-height: 320px;
+    width: 100%;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 0;
+    padding-top: 0;
+  }
+
+  .hero-carousel {
+    width: min(100%, 640px);
+  }
+}
+
 @media (max-width: 640px) {
   #loading-container {
     width: 100%;
