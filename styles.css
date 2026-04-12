@@ -989,7 +989,18 @@ body.is-embedded .creator-embed-close {
 #caption-wrapper {
   position: relative;
   width: 100%;
+  padding-top: 14px;
   pointer-events: none;
+}
+
+#loading-status {
+  margin: 0 0 10px;
+  color: rgba(243, 242, 255, 0.96);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-shadow: 0 0 16px rgba(79, 109, 242, 0.28);
 }
 
 #loading-container {
@@ -1213,6 +1224,7 @@ body.unity-visible #container {
     width: 100%;
   }
 }
+
 
 
 

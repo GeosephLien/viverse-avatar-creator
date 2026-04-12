@@ -93,6 +93,7 @@
 
   <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
     <div id="caption-wrapper">
+      <div id="loading-status" aria-live="polite">Loading... 0%</div>
       <div id="loading-container">
         <div id="loading-bar"></div>
       </div>
@@ -137,6 +138,7 @@
       const uploadVrmInput = document.getElementById('upload-vrm-input');
       const loadingOverlay = document.getElementById('loading-overlay');
       const loadingBar = document.getElementById('loading-bar');
+      const loadingStatus = document.getElementById('loading-status');
       const landingShell = document.querySelector('.landing-shell');
       const container = document.getElementById('container');
       const frameViewport = document.querySelector('.ac2-host-frame-viewport');
@@ -155,7 +157,8 @@
       const unityCodeUrl = './Build/viverse-avatar-creator.wasm.unityweb';
       const unityDataUrl = './Build/viverse-avatar-creator.data.unityweb';
       const START_BUTTON_TEXT = 'Create Now!';
-      const LOADING_BUTTON_TEXT = 'Loading...';
+      const LOADING_STATUS_TEXT = 'Loading...';
+      const LOADING_PROGRESS_SUFFIX = '%';
       const UPLOAD_PANEL_TITLE = 'Preparing';
       const UPLOAD_PANEL_MESSAGE = 'Your avatar will be ready soon.';
       const RUNTIME_EXPORTER_GAME_OBJECT = 'RuntimeClothingMergerAndExporter';
@@ -343,8 +346,18 @@
         };
       }
 
+      function setLoadingStatus(progress) {
+        if (!loadingStatus) {
+          return;
+        }
+
+        const percent = Math.max(0, Math.min(100, Math.round(progress * 100)));
+        loadingStatus.textContent = LOADING_STATUS_TEXT + ' ' + percent + LOADING_PROGRESS_SUFFIX;
+      }
+
       function progressHandler(progress) {
         loadingBar.style.width = (progress * 100) + '%';
+        setLoadingStatus(progress);
       }
 
       function getHostViewportSize() {
@@ -387,14 +400,13 @@
       function showLoadingOverlay() {
         document.body.classList.add('show-loading-overlay');
         loadingOverlay.setAttribute('aria-hidden', 'false');
-        if (startButton) {
-          startButton.textContent = LOADING_BUTTON_TEXT;
-        }
+        setLoadingStatus(0);
       }
 
       function hideLoadingOverlay() {
         document.body.classList.remove('show-loading-overlay');
         loadingOverlay.setAttribute('aria-hidden', 'true');
+        setLoadingStatus(0);
         if (startButton) {
           startButton.textContent = START_BUTTON_TEXT;
         }
@@ -1101,6 +1113,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
