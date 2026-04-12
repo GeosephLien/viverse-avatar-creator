@@ -93,10 +93,10 @@
 
   <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
     <div id="caption-wrapper">
-      <div id="loading-status" aria-live="polite">Loading... 0%</div>
       <div id="loading-container">
         <div id="loading-bar"></div>
       </div>
+      <div id="loading-status" aria-live="polite">Loading... 0%</div>
     </div>
   </div>
 
@@ -406,10 +406,6 @@
       function hideLoadingOverlay() {
         document.body.classList.remove('show-loading-overlay');
         loadingOverlay.setAttribute('aria-hidden', 'true');
-        setLoadingStatus(0);
-        if (startButton) {
-          startButton.textContent = START_BUTTON_TEXT;
-        }
       }
 
       function formatUploadBytes(bytes) {
@@ -501,6 +497,10 @@
         }
 
         hideLoadingOverlay();
+        setLoadingStatus(0);
+        if (startButton) {
+          startButton.textContent = START_BUTTON_TEXT;
+        }
         if (!nextOptions.preserveUploadUi) {
           resetUploadOverlayState();
         }
@@ -948,6 +948,7 @@
             unityReady = true;
             canvas = instance.Module.canvas;
             loadingBar.style.width = '100%';
+            setLoadingStatus(1);
             document.body.classList.add('unity-ready');
             onResize();
 
@@ -1113,6 +1114,7 @@
   </script>
 </body>
 </html>
+
 
 
 

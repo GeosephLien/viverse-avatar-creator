@@ -989,16 +989,16 @@ body.is-embedded .creator-embed-close {
 #caption-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 14px;
   pointer-events: none;
 }
 
 #loading-status {
-  margin: 0 0 10px;
-  color: rgba(243, 242, 255, 0.96);
-  font-size: 14px;
+  margin: 12px 0 0;
+  color: #fff;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 1px;
+  line-height: 1.2;
   text-align: center;
   text-shadow: 0 0 16px rgba(79, 109, 242, 0.28);
 }
@@ -1065,12 +1065,12 @@ body.show-loading-overlay .loading-overlay {
   pointer-events: auto;
 }
 
-body.show-loading-overlay #cta {
+body.show-loading-overlay #cta,
+body.enter-unity #cta {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
-
 
 body.enter-unity .landing-shell,
 body.enter-unity #player-version {
@@ -1224,6 +1224,7 @@ body.unity-visible #container {
     width: 100%;
   }
 }
+
 
 
 
