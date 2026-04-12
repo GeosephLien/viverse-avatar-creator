@@ -1076,9 +1076,7 @@ body.show-loading-overlay .loading-overlay {
 
 body.show-loading-overlay #cta,
 body.enter-unity #cta {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 
 body.show-loading-overlay .creator-inline-action,
