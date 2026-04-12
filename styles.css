@@ -994,14 +994,20 @@ body.is-embedded .creator-embed-close {
 #loading-status {
   display: none;
   align-items: center;
+  justify-content: center;
   min-height: 52px;
+  padding: 0.82rem 1.45rem;
+  border-radius: 999px;
+  border: 0;
   color: #fff;
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 1px;
   line-height: 1.2;
-  text-align: left;
+  text-align: center;
   white-space: nowrap;
+  background: linear-gradient(102deg, var(--accent-blue), var(--accent-violet) 50%, var(--accent-pink));
+  box-shadow: 0 9px 28px rgba(101, 103, 236, 0.34);
   text-shadow: 0 0 16px rgba(79, 109, 242, 0.28);
 }
 
