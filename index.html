@@ -534,9 +534,11 @@
         }
         if (creationConfirmProgressTrack) {
           creationConfirmProgressTrack.hidden = isError;
+          creationConfirmProgressTrack.style.display = isError ? 'none' : '';
         }
         if (creationConfirmProgressMeta) {
           creationConfirmProgressMeta.hidden = isError;
+          creationConfirmProgressMeta.style.display = isError ? 'none' : '';
         }
         if (creationConfirmProgressBar) {
           creationConfirmProgressBar.style.width = percent + '%';
