@@ -749,174 +749,6 @@
         }
       }
 
-      function bytesFromBridgeValue(value) {
-        if (!value) {
-          return null;
-        }
-
-        if (value instanceof Uint8Array) {
-          return value;
-        }
-
-        if (value instanceof ArrayBuffer) {
-          return new Uint8Array(value);
-        }
-
-        if (ArrayBuffer.isView(value)) {
-          return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
-        }
-
-        if (Array.isArray(value)) {
-          return new Uint8Array(value);
-        }
-
-        return null;
-      }
-
-      function getDirectUploadSession() {
-        const payload = hostContext && hostContext.payload ? hostContext.payload : null;
-        const uploadSession = payload && payload.uploadSession ? payload.uploadSession : null;
-        if (!uploadSession || !uploadSession.token || !uploadSession.uploadUrl) {
-          return null;
-        }
-
-        const expiresAt = uploadSession.expiresAt ? Date.parse(uploadSession.expiresAt) : Number.NaN;
-        if (Number.isFinite(expiresAt) && expiresAt <= (Date.now() + 30 * 1000)) {
-          return null;
-        }
-
-        return uploadSession;
-      }
-
-      function handleDirectUploadStarted(fileName, totalBytes) {
-        uploadOverlayState.active = true;
-        uploadOverlayState.hidden = false;
-        uploadOverlayState.restartIssued = false;
-        uploadOverlayState.errorMessage = '';
-        uploadOverlayState.fileName = fileName || 'avatar.vrm';
-        uploadOverlayState.loadedBytes = 0;
-        uploadOverlayState.totalBytes = Number.isFinite(totalBytes) ? totalBytes : 0;
-        renderUploadOverlay();
-        notifyParentEvent('upload-started', {
-          fileName: uploadOverlayState.fileName,
-          totalBytes: uploadOverlayState.totalBytes
-        });
-      }
-
-      function handleDirectUploadProgress(fileName, loadedBytes, totalBytes) {
-        uploadOverlayState.active = true;
-        uploadOverlayState.hidden = false;
-        uploadOverlayState.fileName = fileName || uploadOverlayState.fileName || 'avatar.vrm';
-        uploadOverlayState.loadedBytes = Number.isFinite(loadedBytes) ? loadedBytes : uploadOverlayState.loadedBytes;
-        uploadOverlayState.totalBytes = Number.isFinite(totalBytes) ? totalBytes : uploadOverlayState.totalBytes;
-        renderUploadOverlay();
-        notifyParentEvent('upload-progress', {
-          fileName: uploadOverlayState.fileName,
-          loadedBytes: uploadOverlayState.loadedBytes,
-          totalBytes: uploadOverlayState.totalBytes
-        });
-      }
-
-      function handleDirectUploadFailed(message) {
-        const errorMessage = message || 'VRM upload failed.';
-        uploadOverlayState.active = true;
-        uploadOverlayState.hidden = false;
-        uploadOverlayState.errorMessage = errorMessage;
-        renderUploadOverlay();
-        notifyParentEvent('upload-failed', {
-          message: errorMessage
-        });
-        emitError(errorMessage);
-      }
-
-      function handleDirectUploadComplete(payload) {
-        uploadOverlayState.loadedBytes = uploadOverlayState.totalBytes;
-        renderUploadOverlay();
-        notifyParentEvent('upload-complete', payload || {});
-        ensureUploadRuntimeRestarted();
-        resetUploadOverlayState();
-        requestParentClose({
-          reason: 'upload-complete',
-          restoreDefaultFrameStyle: true
-        });
-      }
-
-      function uploadAvatarWithHostSession(payload) {
-        const uploadSession = getDirectUploadSession();
-        if (!uploadSession) {
-          emitAvatarCreated(payload || {});
-          return;
-        }
-
-        const sourcePayload = payload || {};
-        const providedFile = sourcePayload.file instanceof File ? sourcePayload.file : null;
-        const avatarBytes = providedFile
-          ? null
-          : bytesFromBridgeValue(
-            sourcePayload.avatarBytes
-            || sourcePayload.vrmBytes
-            || sourcePayload.bytes
-          );
-
-        const fileName = typeof sourcePayload.fileName === 'string' && sourcePayload.fileName.trim()
-          ? sourcePayload.fileName.trim()
-          : 'avatar.vrm';
-        const contentType = typeof sourcePayload.contentType === 'string' && sourcePayload.contentType.trim()
-          ? sourcePayload.contentType.trim()
-          : 'model/vrm';
-        const uploadBody = providedFile || avatarBytes;
-        const uploadSize = providedFile
-          ? (providedFile.size || sourcePayload.byteLength || 0)
-          : (avatarBytes ? avatarBytes.byteLength : 0);
-
-        if (!uploadBody) {
-          emitAvatarCreated(sourcePayload);
-          return;
-        }
-
-        handleDirectUploadStarted(fileName, uploadSize);
-
-        const request = new XMLHttpRequest();
-        request.open('POST', uploadSession.uploadUrl, true);
-        request.withCredentials = false;
-        request.setRequestHeader('Authorization', 'Bearer ' + uploadSession.token);
-        request.setRequestHeader('Content-Type', contentType || 'model/vrm');
-        request.setRequestHeader('X-File-Name', fileName);
-        request.setRequestHeader('X-File-Size', String(uploadSize));
-
-        request.upload.addEventListener('progress', function (event) {
-          handleDirectUploadProgress(
-            fileName,
-            event.loaded,
-            event.lengthComputable ? event.total : uploadSize
-          );
-        });
-
-        request.addEventListener('load', function () {
-          if (request.status < 200 || request.status >= 300) {
-            handleDirectUploadFailed('VRM upload failed (' + request.status + ').');
-            return;
-          }
-
-          try {
-            const responsePayload = request.responseText ? JSON.parse(request.responseText) : {};
-            handleDirectUploadComplete(responsePayload);
-          } catch (error) {
-            handleDirectUploadFailed(error && error.message ? error.message : 'VRM upload failed.');
-          }
-        });
-
-        request.addEventListener('error', function () {
-          handleDirectUploadFailed('VRM upload failed.');
-        });
-
-        request.addEventListener('abort', function () {
-          handleDirectUploadFailed('VRM upload aborted.');
-        });
-
-        request.send(uploadBody);
-      }
-
       function isTrustedHostEvent(event) {
         if (!event) {
           return false;
@@ -966,10 +798,9 @@
             uploadVrm: true,
             closeRequest: true,
             exportReadyBridge: true,
-            exportUploadBridge: true,
+            exportUploadBridge: false,
             avatarCreatedBridge: true,
-            directUploadBridge: true,
-            hostManagedUpload: !Boolean(message.payload && message.payload.uploadSession),
+            hostManagedUpload: true,
             frameStyleBridge: true,
             uiConfigBridge: true
           }
@@ -1047,7 +878,7 @@
 
       window.AC2Bridge = {
         avatarCreated: function (payload) {
-          uploadAvatarWithHostSession(normalizeBridgePayload(payload));
+          emitAvatarCreated(normalizeBridgePayload(payload));
         },
         exportReady: function (payload) {
           emitExportReady(normalizeBridgePayload(payload));
