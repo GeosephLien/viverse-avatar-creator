@@ -207,6 +207,8 @@
         border: '1px solid rgba(255, 255, 255, 0.18)'
       };
       const urlParams = new URLSearchParams(window.location.search);
+      const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+      const DEFAULT_CONTENT_TYPE = 'model/vrm';
 
       let canvas = canvasElement;
       let unityReady = false;
@@ -223,6 +225,9 @@
       let hostOrigin = '*';
       let hostSource = null;
       let hostFrameStyle = DEFAULT_HOST_FRAME_STYLE;
+      let standaloneConfig = null;
+      let ac2ApiBase = '';
+      let ac2Session = null;
       let uploadOverlayState = {
         active: false,
         hidden: false,
@@ -247,6 +252,40 @@
 
       if (versionBadge) {
         versionBadge.textContent = 'v2.1.872';
+      }
+
+      function parseStandaloneConfig() {
+        if (!window.location.hash || !window.location.hash.includes('ac2-standalone=')) {
+          return null;
+        }
+
+        const hash = window.location.hash.replace(/^#/, '');
+        const params = new URLSearchParams(hash);
+        const raw = params.get('ac2-standalone');
+        if (!raw) {
+          return null;
+        }
+
+        try {
+          const json = decodeURIComponent(escape(atob(decodeURIComponent(raw))));
+          return JSON.parse(json);
+        } catch (error) {
+          console.warn('Unable to parse standalone AC2 config.', error);
+          return null;
+        }
+      }
+
+      standaloneConfig = parseStandaloneConfig();
+      if (standaloneConfig && typeof standaloneConfig.apiBase === 'string') {
+        ac2ApiBase = standaloneConfig.apiBase;
+        ac2Session = standaloneConfig.session || null;
+        hostContext = {
+          requestId: null,
+          payload: ac2Session || {}
+        };
+        if (standaloneConfig.uiMode) {
+          updateUiMode(standaloneConfig.uiMode);
+        }
       }
 
       function cloneFrameInsets(source, fallback) {
@@ -640,10 +679,25 @@
         menu.addEventListener('click', closeMenu);
       })();
 
-      function notifyParent(message) {
+      function getHostMessageTarget() {
         if (window.parent && window.parent !== window) {
-          window.parent.postMessage(message, hostOrigin);
+          return window.parent;
         }
+
+        if (window.opener && !window.opener.closed) {
+          return window.opener;
+        }
+
+        return null;
+      }
+
+      function notifyParent(message) {
+        const target = getHostMessageTarget();
+        if (!target) {
+          return;
+        }
+
+        target.postMessage(message, hostOrigin);
       }
 
       function createMessage(type, payload) {
@@ -720,6 +774,321 @@
       function emitToParent(type, payload) {
         notifyParentEvent(type, payload);
         notifyLegacyEvent(type, payload);
+      }
+
+      function parsePayload(payload) {
+        if (typeof payload !== 'string') {
+          return payload;
+        }
+
+        try {
+          return JSON.parse(payload);
+        } catch (error) {
+          console.warn('Unable to parse AC2 payload JSON.', error);
+          return null;
+        }
+      }
+
+      function bytesFromBase64(value) {
+        if (typeof value !== 'string' || !value) {
+          return null;
+        }
+
+        const base64 = value.includes(',') ? value.split(',').pop() : value;
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+
+        for (let index = 0; index < binary.length; index += 1) {
+          bytes[index] = binary.charCodeAt(index);
+        }
+
+        return bytes;
+      }
+
+      function bytesFromValue(value) {
+        if (!value) {
+          return null;
+        }
+
+        if (value instanceof Uint8Array) {
+          return value;
+        }
+
+        if (value instanceof ArrayBuffer) {
+          return new Uint8Array(value);
+        }
+
+        if (Array.isArray(value)) {
+          return new Uint8Array(value);
+        }
+
+        if (typeof value === 'string') {
+          return bytesFromBase64(value);
+        }
+
+        return null;
+      }
+
+      function toVrmFile(payload, options) {
+        const nextOptions = options || {};
+        const maxUploadBytes = Number.isFinite(nextOptions.maxUploadBytes)
+          ? nextOptions.maxUploadBytes
+          : DEFAULT_MAX_UPLOAD_BYTES;
+        let parsedPayload = parsePayload(payload);
+
+        if (parsedPayload && parsedPayload.file instanceof File) {
+          return parsedPayload.file;
+        }
+
+        if (!parsedPayload || !parsedPayload.avatarBytes) {
+          const fallbackBytes = bytesFromValue(parsedPayload && (
+            parsedPayload.vrmBytes
+            || parsedPayload.bytes
+            || parsedPayload.avatarBase64
+            || parsedPayload.vrmBase64
+            || parsedPayload.base64
+            || parsedPayload.dataUrl
+          ));
+
+          if (!fallbackBytes) {
+            return null;
+          }
+
+          parsedPayload = Object.assign({}, parsedPayload, {
+            avatarBytes: fallbackBytes
+          });
+        }
+
+        const fileName = typeof parsedPayload.fileName === 'string' && parsedPayload.fileName.trim()
+          ? parsedPayload.fileName.trim()
+          : 'avatar.vrm';
+        const contentType = typeof parsedPayload.contentType === 'string' && parsedPayload.contentType.trim()
+          ? parsedPayload.contentType.trim()
+          : DEFAULT_CONTENT_TYPE;
+        const avatarBytes = bytesFromValue(parsedPayload.avatarBytes);
+
+        if (!avatarBytes) {
+          return null;
+        }
+
+        if (avatarBytes.byteLength > maxUploadBytes) {
+          throw new Error('VRM file is too large.');
+        }
+
+        return new File([avatarBytes], fileName, { type: contentType });
+      }
+
+      function parseErrorMessage(text, fallback) {
+        if (!text) {
+          return fallback;
+        }
+
+        try {
+          const payload = JSON.parse(text);
+          if (payload && typeof payload.message === 'string' && payload.message.trim()) {
+            return payload.message.trim();
+          }
+        } catch (error) {
+          // Ignore malformed JSON and fall back to the response text.
+        }
+
+        return text.trim() || fallback;
+      }
+
+      function uploadToSignedUrl(upload, file, options) {
+        const nextOptions = options || {};
+        return new Promise(function (resolve, reject) {
+          const request = new XMLHttpRequest();
+          request.open(upload.method || 'PUT', upload.url, true);
+          request.withCredentials = false;
+
+          Object.entries(upload.headers || {}).forEach(function (entry) {
+            request.setRequestHeader(entry[0], entry[1]);
+          });
+
+          request.upload.addEventListener('progress', function (event) {
+            if (typeof nextOptions.onProgress === 'function') {
+              nextOptions.onProgress({
+                loaded: event.loaded,
+                total: event.lengthComputable ? event.total : file.size || 0
+              });
+            }
+          });
+
+          request.addEventListener('load', function () {
+            if (request.status < 200 || request.status >= 300) {
+              reject(new Error(parseErrorMessage(request.responseText, 'VRM upload failed (' + request.status + ')')));
+              return;
+            }
+
+            resolve({
+              status: request.status,
+              etag: request.getResponseHeader('etag') || request.getResponseHeader('ETag') || ''
+            });
+          });
+
+          request.addEventListener('error', function () {
+            reject(new Error('VRM upload failed.'));
+          });
+
+          request.addEventListener('abort', function () {
+            reject(new Error('VRM upload aborted.'));
+          });
+
+          request.send(file);
+        });
+      }
+
+      function ensureAc2Session() {
+        if (ac2Session && ac2Session.sessionToken) {
+          return Promise.resolve(ac2Session);
+        }
+
+        return Promise.reject(new Error('Missing AC2 session.'));
+      }
+
+      function getAc2AuthHeaders(extraHeaders) {
+        const token = ac2Session && ac2Session.sessionToken ? ac2Session.sessionToken : '';
+        const baseHeaders = extraHeaders || {};
+        return token
+          ? Object.assign({}, baseHeaders, { Authorization: 'Bearer ' + token })
+          : baseHeaders;
+      }
+
+      async function requestUploadTicket(file) {
+        await ensureAc2Session();
+
+        const response = await fetch(ac2ApiBase + '/api/ac2/upload-ticket', {
+          method: 'POST',
+          credentials: 'include',
+          headers: getAc2AuthHeaders({
+            'Content-Type': 'application/json'
+          }),
+          body: JSON.stringify({
+            fileName: file.name || 'avatar.vrm',
+            contentType: file.type || DEFAULT_CONTENT_TYPE,
+            size: file.size || 0
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(parseErrorMessage(await response.text(), 'Failed to create upload ticket (' + response.status + ')'));
+        }
+
+        return response.json();
+      }
+
+      async function finalizeUpload(payload) {
+        await ensureAc2Session();
+
+        const response = await fetch(ac2ApiBase + '/api/ac2/finalize-upload', {
+          method: 'POST',
+          credentials: 'include',
+          headers: getAc2AuthHeaders({
+            'Content-Type': 'application/json'
+          }),
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error(parseErrorMessage(await response.text(), 'Failed to finalize upload (' + response.status + ')'));
+        }
+
+        return response.json();
+      }
+
+      async function uploadVrmDirect(file, options) {
+        const nextOptions = options || {};
+        if (!(file instanceof Blob)) {
+          throw new Error('Missing VRM file.');
+        }
+
+        const ticketResult = await requestUploadTicket(file);
+        const upload = ticketResult && ticketResult.upload;
+        if (!upload || !upload.url) {
+          throw new Error('Upload ticket is missing the signed upload URL.');
+        }
+
+        const uploadResult = await uploadToSignedUrl(upload, file, {
+          onProgress: nextOptions.onProgress
+        });
+
+        const finalizeResult = await finalizeUpload({
+          key: ticketResult.key,
+          fileName: ticketResult.fileName || file.name || 'avatar.vrm',
+          contentType: file.type || DEFAULT_CONTENT_TYPE,
+          size: file.size || 0,
+          etag: uploadResult.etag || ''
+        });
+
+        return Object.assign({}, finalizeResult, {
+          key: finalizeResult.key || ticketResult.key,
+          fileName: finalizeResult.fileName || ticketResult.fileName || file.name || 'avatar.vrm',
+          upload: uploadResult
+        });
+      }
+
+      async function startAc2Upload(file, options) {
+        const nextOptions = options || {};
+        if (!(file instanceof File)) {
+          throw new Error('Missing VRM file.');
+        }
+
+        uploadOverlayState.active = true;
+        uploadOverlayState.hidden = false;
+        uploadOverlayState.restartIssued = false;
+        uploadOverlayState.errorMessage = '';
+        uploadOverlayState.fileName = file.name || 'avatar.vrm';
+        uploadOverlayState.loadedBytes = 0;
+        uploadOverlayState.totalBytes = file.size || 0;
+        renderUploadOverlay();
+        emitToParent('upload-started', {
+          fileName: uploadOverlayState.fileName,
+          totalBytes: uploadOverlayState.totalBytes
+        });
+
+        try {
+          const uploadResult = await uploadVrmDirect(file, {
+            onProgress: function (progress) {
+              uploadOverlayState.active = true;
+              uploadOverlayState.hidden = false;
+              uploadOverlayState.loadedBytes = progress.loaded;
+              uploadOverlayState.totalBytes = progress.total || file.size || 0;
+              renderUploadOverlay();
+              emitToParent('upload-progress', {
+                fileName: file.name || 'avatar.vrm',
+                loadedBytes: progress.loaded,
+                totalBytes: progress.total || file.size || 0
+              });
+            }
+          });
+
+          uploadOverlayState.loadedBytes = uploadOverlayState.totalBytes;
+          renderUploadOverlay();
+          emitToParent('upload-complete', Object.assign({}, uploadResult, {
+            totalBytes: uploadOverlayState.totalBytes
+          }));
+          ensureUploadRuntimeRestarted();
+          resetUploadOverlayState();
+
+          if (!nextOptions.suppressClose) {
+            requestParentClose({
+              reason: 'upload-complete',
+              restoreDefaultFrameStyle: true
+            });
+          }
+
+          return uploadResult;
+        } catch (error) {
+          uploadOverlayState.active = true;
+          uploadOverlayState.hidden = false;
+          uploadOverlayState.errorMessage = error && error.message ? error.message : UPLOAD_FAILED_MESSAGE;
+          renderUploadOverlay();
+          emitToParent('upload-failed', {
+            message: uploadOverlayState.errorMessage
+          });
+          throw error;
+        }
       }
 
       function updateUiMode(uiMode) {
@@ -803,6 +1172,10 @@
           requestId: message.requestId || (hostContext && hostContext.requestId ? hostContext.requestId : null),
           payload: message.payload || {}
         };
+        ac2Session = message.payload || ac2Session;
+        if (typeof message.payload.apiBase === 'string' && message.payload.apiBase) {
+          ac2ApiBase = message.payload.apiBase;
+        }
 
         updateUiMode(message.payload && message.payload.uiMode ? message.payload.uiMode : 'modal');
         applyFrameStyle(message.payload && message.payload.frameStyle ? message.payload.frameStyle : hostFrameStyle);
@@ -828,7 +1201,8 @@
             exportReadyBridge: true,
             exportUploadBridge: false,
             avatarCreatedBridge: true,
-            hostManagedUpload: true,
+            hostManagedUpload: false,
+            selfManagedUpload: true,
             frameStyleBridge: true,
             uiConfigBridge: true
           }
@@ -843,7 +1217,7 @@
       }
 
       function requestParentClose(payload) {
-        if (!isEmbedded) return;
+        if (!getHostMessageTarget()) return;
         emitToParent('close-request', payload || {});
       }
 
@@ -862,8 +1236,8 @@
           return;
         }
 
-        emitToParent('upload-vrm', {
-          file: file
+        startAc2Upload(file).catch(function (error) {
+          console.error(error);
         });
       }
 
@@ -906,7 +1280,19 @@
 
       window.AC2Bridge = {
         avatarCreated: function (payload) {
-          emitAvatarCreated(normalizeBridgePayload(payload));
+          const normalizedPayload = normalizeBridgePayload(payload);
+          const file = toVrmFile(normalizedPayload, {
+            maxUploadBytes: DEFAULT_MAX_UPLOAD_BYTES
+          });
+
+          if (!file) {
+            emitError('Missing VRM file.', 'The exported avatar payload could not be converted to a VRM file.');
+            return;
+          }
+
+          startAc2Upload(file).catch(function (error) {
+            console.error(error);
+          });
         },
         exportReady: function (payload) {
           emitExportReady(normalizeBridgePayload(payload));
@@ -1120,10 +1506,12 @@
       });
       if (urlParams.get('embedded') === '1') {
         updateUiMode(urlParams.get('uiMode') || 'modal');
+      } else if (standaloneConfig && standaloneConfig.uiMode) {
+        updateUiMode(standaloneConfig.uiMode);
       }
-      if (isEmbedded) {
+      if (isEmbedded || getHostMessageTarget()) {
         notifyParentEvent('ready', {
-          embedded: true,
+          embedded: isEmbedded,
           path: window.location.pathname,
           uiMode: document.body.dataset.ac2UiMode || urlParams.get('uiMode') || 'modal',
           frameStyle: getFrameStylePayload(),
