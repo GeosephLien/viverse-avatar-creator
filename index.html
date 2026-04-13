@@ -864,28 +864,31 @@
         const contentType = typeof sourcePayload.contentType === 'string' && sourcePayload.contentType.trim()
           ? sourcePayload.contentType.trim()
           : 'model/vrm';
-        const file = providedFile || (avatarBytes ? new File([avatarBytes], fileName, { type: contentType }) : null);
+        const uploadBody = providedFile || avatarBytes;
+        const uploadSize = providedFile
+          ? (providedFile.size || sourcePayload.byteLength || 0)
+          : (avatarBytes ? avatarBytes.byteLength : 0);
 
-        if (!file) {
+        if (!uploadBody) {
           emitAvatarCreated(sourcePayload);
           return;
         }
 
-        handleDirectUploadStarted(file.name, file.size || sourcePayload.byteLength || 0);
-
-        const formData = new FormData();
-        formData.append('file', file, file.name);
+        handleDirectUploadStarted(fileName, uploadSize);
 
         const request = new XMLHttpRequest();
         request.open('POST', uploadSession.uploadUrl, true);
         request.withCredentials = false;
         request.setRequestHeader('Authorization', 'Bearer ' + uploadSession.token);
+        request.setRequestHeader('Content-Type', contentType || 'model/vrm');
+        request.setRequestHeader('X-File-Name', fileName);
+        request.setRequestHeader('X-File-Size', String(uploadSize));
 
         request.upload.addEventListener('progress', function (event) {
           handleDirectUploadProgress(
-            file.name,
+            fileName,
             event.loaded,
-            event.lengthComputable ? event.total : (file.size || sourcePayload.byteLength || 0)
+            event.lengthComputable ? event.total : uploadSize
           );
         });
 
@@ -911,7 +914,7 @@
           handleDirectUploadFailed('VRM upload aborted.');
         });
 
-        request.send(formData);
+        request.send(uploadBody);
       }
 
       function isTrustedHostEvent(event) {
