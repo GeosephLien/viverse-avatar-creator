@@ -127,7 +127,9 @@
         <span id="creation-confirm-progress-detail">Preparing upload...</span>
       </div>
       <div class="confirm-actions">
-        <button class="confirm-action-button" type="button" data-confirm-hide-panel>Close Panel</button>
+        <button class="confirm-action-button" type="button" data-confirm-hide-panel>Hide Panel</button>
+        <button class="confirm-action-button" type="button" data-confirm-refresh hidden>Refresh</button>
+        <button class="confirm-action-button" type="button" data-confirm-go-back hidden>Go Back</button>
       </div>
     </div>
   </div>
@@ -148,6 +150,18 @@
       const creationConfirmHidePanelButton = creationConfirmOverlay
         ? creationConfirmOverlay.querySelector('[data-confirm-hide-panel]')
         : null;
+      const creationConfirmRefreshButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-refresh]')
+        : null;
+      const creationConfirmGoBackButton = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('[data-confirm-go-back]')
+        : null;
+      const creationConfirmProgressTrack = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('.confirm-progress-track')
+        : null;
+      const creationConfirmProgressMeta = creationConfirmOverlay
+        ? creationConfirmOverlay.querySelector('.confirm-progress-meta')
+        : null;
       const creationConfirmMessage = document.getElementById('creation-confirm-message');
       const creationConfirmProgressBar = document.getElementById('creation-confirm-progress-bar');
       const creationConfirmProgressText = document.getElementById('creation-confirm-progress-text');
@@ -163,7 +177,7 @@
       const LOADING_PROGRESS_SUFFIX = '%';
       const UPLOAD_PANEL_TITLE = 'Preparing';
       const UPLOAD_PANEL_MESSAGE = 'Your avatar will be ready soon.';
-      const UPLOAD_FAILED_TITLE = 'Avatar Upload Failed';
+      const UPLOAD_FAILED_TITLE = 'Something is Wrong';
       const UPLOAD_FAILED_MESSAGE = 'Please refresh the page and try again.';
       const RUNTIME_EXPORTER_GAME_OBJECT = 'RuntimeClothingMergerAndExporter';
       const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
@@ -496,12 +510,20 @@
 
         const percent = getUploadPercent();
         const isError = !!uploadOverlayState.errorMessage;
+        const isMobileError = isError && isMobileUploadPanel();
         const panelMessage = isError ? UPLOAD_FAILED_MESSAGE : UPLOAD_PANEL_MESSAGE;
         const panelTitle = isError ? UPLOAD_FAILED_TITLE : UPLOAD_PANEL_TITLE;
         if (creationConfirmHidePanelButton) {
-          creationConfirmHidePanelButton.textContent = isError && isMobileUploadPanel()
-            ? 'Refresh'
-            : (isError ? 'Close Panel' : 'Hide Panel');
+          creationConfirmHidePanelButton.textContent = isError ? 'Close Panel' : 'Hide Panel';
+          creationConfirmHidePanelButton.hidden = isMobileError;
+        }
+        if (creationConfirmRefreshButton) {
+          creationConfirmRefreshButton.hidden = !isError;
+          creationConfirmRefreshButton.style.order = isMobileError ? '1' : '0';
+        }
+        if (creationConfirmGoBackButton) {
+          creationConfirmGoBackButton.hidden = !isMobileError;
+          creationConfirmGoBackButton.style.order = isMobileError ? '0' : '1';
         }
         const titleElement = document.getElementById('creation-confirm-title');
         if (titleElement) {
@@ -509,6 +531,12 @@
         }
         if (creationConfirmMessage) {
           creationConfirmMessage.textContent = panelMessage;
+        }
+        if (creationConfirmProgressTrack) {
+          creationConfirmProgressTrack.hidden = isError;
+        }
+        if (creationConfirmProgressMeta) {
+          creationConfirmProgressMeta.hidden = isError;
         }
         if (creationConfirmProgressBar) {
           creationConfirmProgressBar.style.width = percent + '%';
@@ -593,17 +621,38 @@
         return uiMode === 'mobile';
       }
 
+      function refreshCurrentPage() {
+        window.location.reload();
+      }
+
+      function goBackToSourcePage() {
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.focus();
+          } catch (error) {
+            console.warn('Unable to focus opener window.', error);
+          }
+          window.close();
+          return;
+        }
+
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+
+        requestParentClose({
+          reason: 'upload-failed-back',
+          restoreDefaultFrameStyle: true
+        });
+      }
+
       function handleUploadHideRequest() {
         if (!uploadOverlayState.active) {
           return;
         }
 
         if (uploadOverlayState.errorMessage) {
-          if (isMobileUploadPanel()) {
-            window.location.reload();
-            return;
-          }
-
           ensureUploadRuntimeRestarted();
           resetUploadOverlayState();
           requestParentClose({
@@ -1260,6 +1309,8 @@
         requestParentClose();
       });
       creationConfirmHidePanelButton && creationConfirmHidePanelButton.addEventListener('click', handleUploadHideRequest);
+      creationConfirmRefreshButton && creationConfirmRefreshButton.addEventListener('click', refreshCurrentPage);
+      creationConfirmGoBackButton && creationConfirmGoBackButton.addEventListener('click', goBackToSourcePage);
 
       (() => {
         const slides = Array.prototype.slice.call(document.querySelectorAll('.hero-slide'));

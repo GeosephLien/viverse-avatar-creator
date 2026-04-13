@@ -285,7 +285,9 @@ body.is-embedded .creator-embed-close {
 .confirm-actions {
   margin-top: 1rem;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-start;
+  gap: 0.75rem;
 }
 
 .confirm-action-button {
@@ -293,6 +295,7 @@ body.is-embedded .creator-embed-close {
   align-items: center;
   justify-content: center;
   min-width: 132px;
+  min-height: 48px;
   padding: 0.78rem 1rem;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
@@ -308,6 +311,10 @@ body.is-embedded .creator-embed-close {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.32);
   filter: brightness(1.05);
+}
+
+.confirm-action-button[hidden] {
+  display: none;
 }
 
 .landing {
