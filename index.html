@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -128,7 +128,6 @@
       </div>
       <div class="confirm-actions">
         <button class="confirm-action-button" type="button" data-confirm-hide-panel>Close Panel</button>
-        <button class="confirm-action-button" type="button" data-confirm-secondary-action hidden>Back</button>
       </div>
     </div>
   </div>
@@ -149,9 +148,6 @@
       const creationConfirmHidePanelButton = creationConfirmOverlay
         ? creationConfirmOverlay.querySelector('[data-confirm-hide-panel]')
         : null;
-      const creationConfirmSecondaryButton = creationConfirmOverlay
-        ? creationConfirmOverlay.querySelector('[data-confirm-secondary-action]')
-        : null;
       const creationConfirmMessage = document.getElementById('creation-confirm-message');
       const creationConfirmProgressBar = document.getElementById('creation-confirm-progress-bar');
       const creationConfirmProgressText = document.getElementById('creation-confirm-progress-text');
@@ -169,8 +165,6 @@
       const UPLOAD_PANEL_MESSAGE = 'Your avatar will be ready soon.';
       const UPLOAD_FAILED_TITLE = 'Avatar Upload Failed';
       const UPLOAD_FAILED_MESSAGE = 'Please refresh the page and try again.';
-      const UPLOAD_SUCCESS_TITLE = 'Success!';
-      const UPLOAD_SUCCESS_MESSAGE = 'Choose what you want to do next.';
       const RUNTIME_EXPORTER_GAME_OBJECT = 'RuntimeClothingMergerAndExporter';
       const RUNTIME_EXPORTER_RESTART_METHOD = 'RestartCreatorRuntime';
       const isEmbedded = window.parent && window.parent !== window;
@@ -213,20 +207,6 @@
         border: '1px solid rgba(255, 255, 255, 0.18)'
       };
       const urlParams = new URLSearchParams(window.location.search);
-      const standaloneConfig = (() => {
-        if (urlParams.get('standalone') !== '1') return null;
-        const hashValue = window.location.hash || '';
-        if (!hashValue.startsWith('#ac2-standalone=')) return null;
-        try {
-          const encoded = decodeURIComponent(hashValue.slice('#ac2-standalone='.length));
-          const json = decodeURIComponent(escape(atob(encoded)));
-          return JSON.parse(json);
-        } catch (error) {
-          console.warn('Unable to parse standalone AC2 config.', error);
-          return null;
-        }
-      })();
-      const isStandaloneDirectUpload = !!(standaloneConfig && standaloneConfig.apiBase && standaloneConfig.session && standaloneConfig.session.sessionToken);
 
       let canvas = canvasElement;
       let unityReady = false;
@@ -248,7 +228,6 @@
         hidden: false,
         restartIssued: false,
         errorMessage: '',
-        success: false,
         fileName: 'avatar.vrm',
         loadedBytes: 0,
         totalBytes: 0
@@ -477,20 +456,13 @@
         }
 
         const percent = getUploadPercent();
-        const isSuccess = !!uploadOverlayState.success;
         const isError = !!uploadOverlayState.errorMessage;
-        const panelMessage = isSuccess ? UPLOAD_SUCCESS_MESSAGE : (isError ? UPLOAD_FAILED_MESSAGE : UPLOAD_PANEL_MESSAGE);
-        const panelTitle = isSuccess ? UPLOAD_SUCCESS_TITLE : (isError ? UPLOAD_FAILED_TITLE : UPLOAD_PANEL_TITLE);
+        const panelMessage = isError ? UPLOAD_FAILED_MESSAGE : UPLOAD_PANEL_MESSAGE;
+        const panelTitle = isError ? UPLOAD_FAILED_TITLE : UPLOAD_PANEL_TITLE;
         if (creationConfirmHidePanelButton) {
-          const shouldShowPrimaryAction = !isStandaloneDirectUpload || isError || isSuccess;
-          creationConfirmHidePanelButton.hidden = !shouldShowPrimaryAction;
-          creationConfirmHidePanelButton.textContent = isSuccess
-            ? 'Create Again'
-            : (isError ? (isStandaloneDirectUpload ? 'Refresh' : 'Close Panel') : 'Hide Panel');
-        }
-        if (creationConfirmSecondaryButton) {
-          creationConfirmSecondaryButton.hidden = !(isStandaloneDirectUpload && isSuccess);
-          creationConfirmSecondaryButton.textContent = 'Back';
+          creationConfirmHidePanelButton.textContent = isError && isMobileUploadPanel()
+            ? 'Refresh'
+            : (isError ? 'Close Panel' : 'Hide Panel');
         }
         const titleElement = document.getElementById('creation-confirm-title');
         if (titleElement) {
@@ -503,12 +475,10 @@
           creationConfirmProgressBar.style.width = percent + '%';
         }
         if (creationConfirmProgressText) {
-          creationConfirmProgressText.textContent = isSuccess ? '100%' : (percent + '%');
+          creationConfirmProgressText.textContent = percent + '%';
         }
         if (creationConfirmProgressDetail) {
-          creationConfirmProgressDetail.textContent = isSuccess
-            ? 'Upload complete.'
-            : (formatUploadBytes(uploadOverlayState.loadedBytes) + ' / ' + formatUploadBytes(uploadOverlayState.totalBytes));
+          creationConfirmProgressDetail.textContent = formatUploadBytes(uploadOverlayState.loadedBytes) + ' / ' + formatUploadBytes(uploadOverlayState.totalBytes);
         }
         emitConfirmState(true);
       }
@@ -519,7 +489,6 @@
           hidden: false,
           restartIssued: false,
           errorMessage: '',
-          success: false,
           fileName: 'avatar.vrm',
           loadedBytes: 0,
           totalBytes: 0
@@ -580,21 +549,9 @@
         });
       }
 
-      function restartStandaloneCreatorFlow() {
-        restartUnityRuntime();
-        resetUploadOverlayState();
-        window.setTimeout(queueUnityEntry, 0);
-      }
-
-      function navigateStandaloneBack() {
-        const returnTo = standaloneConfig && typeof standaloneConfig.returnTo === 'string'
-          ? standaloneConfig.returnTo
-          : '';
-        if (returnTo) {
-          window.location.assign(returnTo);
-          return;
-        }
-        window.location.reload();
+      function isMobileUploadPanel() {
+        const uiMode = document.body.dataset.ac2UiMode || urlParams.get('uiMode') || '';
+        return uiMode === 'mobile';
       }
 
       function handleUploadHideRequest() {
@@ -602,13 +559,8 @@
           return;
         }
 
-        if (isStandaloneDirectUpload && uploadOverlayState.success) {
-          restartStandaloneCreatorFlow();
-          return;
-        }
-
         if (uploadOverlayState.errorMessage) {
-          if (isStandaloneDirectUpload) {
+          if (isMobileUploadPanel()) {
             window.location.reload();
             return;
           }
@@ -622,24 +574,12 @@
           return;
         }
 
-        if (isStandaloneDirectUpload) {
-          return;
-        }
-
         uploadOverlayState.hidden = true;
         renderUploadOverlay();
         requestParentClose({
           reason: 'upload-hidden',
           restoreDefaultFrameStyle: true
         });
-      }
-
-      function handleUploadSecondaryAction() {
-        if (!uploadOverlayState.active || !isStandaloneDirectUpload || !uploadOverlayState.success) {
-          return;
-        }
-
-        navigateStandaloneBack();
       }
 
       function enterUnity() {
@@ -821,16 +761,6 @@
       }
 
       function emitAvatarCreated(payload) {
-        if (isStandaloneDirectUpload) {
-          const file = standalonePayloadToFile(payload);
-          if (!file) {
-            emitError(UPLOAD_FAILED_TITLE, UPLOAD_FAILED_MESSAGE);
-            return;
-          }
-          void uploadStandaloneFile(file);
-          return;
-        }
-
         emitToParent('avatar-created', payload || {});
       }
 
@@ -847,194 +777,6 @@
         }
       }
 
-      function standaloneBytesFromBase64(value) {
-        if (typeof value !== 'string' || !value) {
-          return null;
-        }
-
-        const base64 = value.includes(',') ? value.split(',').pop() : value;
-        const binary = atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let index = 0; index < binary.length; index += 1) {
-          bytes[index] = binary.charCodeAt(index);
-        }
-        return bytes;
-      }
-
-      function standaloneBytesFromValue(value) {
-        if (!value) {
-          return null;
-        }
-
-        if (value instanceof Uint8Array) {
-          return value;
-        }
-
-        if (value instanceof ArrayBuffer) {
-          return new Uint8Array(value);
-        }
-
-        if (Array.isArray(value)) {
-          return new Uint8Array(value);
-        }
-
-        if (typeof value === 'string') {
-          return standaloneBytesFromBase64(value);
-        }
-
-        return null;
-      }
-
-      function standalonePayloadToFile(payload) {
-        payload = normalizeBridgePayload(payload);
-        if (payload && payload.file instanceof File) {
-          return payload.file;
-        }
-
-        if (!payload || !payload.avatarBytes) {
-          const fallbackBytes = standaloneBytesFromValue(payload && (
-            payload.vrmBytes ||
-            payload.bytes ||
-            payload.avatarBase64 ||
-            payload.vrmBase64 ||
-            payload.base64 ||
-            payload.dataUrl
-          ));
-
-          if (!fallbackBytes) {
-            return null;
-          }
-
-          payload = Object.assign({}, payload, {
-            avatarBytes: fallbackBytes
-          });
-        }
-
-        const fileName = typeof payload.fileName === 'string' && payload.fileName.trim()
-          ? payload.fileName.trim()
-          : 'avatar.vrm';
-        const contentType = payload.contentType || 'model/vrm';
-        const avatarBytes = standaloneBytesFromValue(payload.avatarBytes);
-        if (!avatarBytes) {
-          return null;
-        }
-
-        return new File([avatarBytes], fileName, { type: contentType });
-      }
-
-      function getStandaloneSessionPayload() {
-        return standaloneConfig && standaloneConfig.session ? standaloneConfig.session : null;
-      }
-
-      function getStandaloneAuthHeaders(extraHeaders) {
-        const headers = extraHeaders || {};
-        const sessionPayload = getStandaloneSessionPayload();
-        const token = sessionPayload && sessionPayload.sessionToken ? sessionPayload.sessionToken : '';
-        return token ? Object.assign({}, headers, { Authorization: 'Bearer ' + token }) : headers;
-      }
-
-      async function requestStandaloneJson(path, method, body) {
-        const response = await fetch((standaloneConfig.apiBase || '').replace(/\/$/, '') + path, {
-          method: method || 'GET',
-          credentials: 'include',
-          headers: getStandaloneAuthHeaders(body ? { 'Content-Type': 'application/json' } : {}),
-          body: body ? JSON.stringify(body) : undefined
-        });
-
-        if (!response.ok) {
-          throw new Error((await response.text()) || ('Request failed (' + response.status + ')'));
-        }
-
-        return response.json();
-      }
-
-      function uploadStandaloneToSignedUrl(upload, file) {
-        return new Promise(function (resolve, reject) {
-          const request = new XMLHttpRequest();
-          request.open(upload.method || 'PUT', upload.url, true);
-          request.withCredentials = false;
-
-          Object.entries(upload.headers || {}).forEach(function (entry) {
-            request.setRequestHeader(entry[0], entry[1]);
-          });
-
-          request.upload.addEventListener('progress', function (event) {
-            uploadOverlayState.active = true;
-            uploadOverlayState.hidden = false;
-            uploadOverlayState.loadedBytes = event.loaded;
-            uploadOverlayState.totalBytes = event.lengthComputable ? event.total : (file.size || uploadOverlayState.totalBytes);
-            renderUploadOverlay();
-          });
-
-          request.addEventListener('load', function () {
-            if (request.status < 200 || request.status >= 300) {
-              reject(new Error('VRM upload failed.'));
-              return;
-            }
-
-            resolve({
-              status: request.status,
-              etag: request.getResponseHeader('etag') || request.getResponseHeader('ETag') || ''
-            });
-          });
-
-          request.addEventListener('error', function () {
-            reject(new Error('VRM upload failed.'));
-          });
-
-          request.addEventListener('abort', function () {
-            reject(new Error('VRM upload aborted.'));
-          });
-
-          request.send(file);
-        });
-      }
-
-      async function uploadStandaloneFile(file) {
-        if (!(file instanceof Blob)) {
-          throw new Error('Missing VRM file.');
-        }
-
-        uploadOverlayState.active = true;
-        uploadOverlayState.hidden = false;
-        uploadOverlayState.restartIssued = false;
-        uploadOverlayState.errorMessage = '';
-        uploadOverlayState.fileName = file.name || 'avatar.vrm';
-        uploadOverlayState.loadedBytes = 0;
-        uploadOverlayState.totalBytes = file.size || 0;
-        renderUploadOverlay();
-
-        try {
-          const ticket = await requestStandaloneJson('/api/ac2/upload-ticket', 'POST', {
-            fileName: file.name || 'avatar.vrm',
-            contentType: file.type || 'model/vrm',
-            size: file.size || 0,
-            source: standaloneConfig.source || 'ac2-new-tab'
-          });
-          const uploadResult = await uploadStandaloneToSignedUrl(ticket.upload, file);
-          uploadOverlayState.loadedBytes = uploadOverlayState.totalBytes;
-          renderUploadOverlay();
-          await requestStandaloneJson('/api/ac2/finalize-upload', 'POST', {
-            key: ticket.key,
-            fileName: ticket.fileName || file.name || 'avatar.vrm',
-            contentType: file.type || 'model/vrm',
-            size: file.size || 0,
-            etag: uploadResult.etag || ''
-          });
-          ensureUploadRuntimeRestarted();
-          uploadOverlayState.active = true;
-          uploadOverlayState.hidden = false;
-          uploadOverlayState.errorMessage = '';
-          uploadOverlayState.success = true;
-          renderUploadOverlay();
-        } catch (error) {
-          console.error(error);
-          uploadOverlayState.active = true;
-          uploadOverlayState.hidden = false;
-          uploadOverlayState.errorMessage = UPLOAD_FAILED_MESSAGE;
-          renderUploadOverlay();
-        }
-      }
       function isTrustedHostEvent(event) {
         if (!event) {
           return false;
@@ -1120,11 +862,6 @@
           return;
         }
 
-        if (isStandaloneDirectUpload) {
-          void uploadStandaloneFile(file);
-          return;
-        }
-
         emitToParent('upload-vrm', {
           file: file
         });
@@ -1149,10 +886,9 @@
         requestParentClose();
       });
       creationConfirmHidePanelButton && creationConfirmHidePanelButton.addEventListener('click', handleUploadHideRequest);
-      creationConfirmSecondaryButton && creationConfirmSecondaryButton.addEventListener('click', handleUploadSecondaryAction);
-      creationConfirmSecondaryButton && creationConfirmSecondaryButton.addEventListener('click', handleUploadSecondaryAction);
 
       (() => {
+        const slides = Array.prototype.slice.call(document.querySelectorAll('.hero-slide'));
         if (slides.length < 2) return;
 
         let currentIndex = 0;
